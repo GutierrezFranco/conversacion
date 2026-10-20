@@ -52,6 +52,8 @@ export function buildRenderArgs(opts: {
   fontsDir?: string;
   // Música de fondo: se repite si es corta, baja sola cuando hablás y se apaga al final.
   music?: { file: string; volume: number; duration: number };
+  // Un fotograma clave cada tantos cuadros. HyperFrames lo necesita seguido para leer el video sin congelarse.
+  keyframeEvery?: number;
 }): string[] {
   // Pocos hilos: ffmpeg usa uno por cada núcleo que ve, y en servidores compartidos ve decenas;
   // cada hilo guarda sus propios fotogramas y se queda sin memoria. FFMPEG_THREADS lo cambia.
@@ -121,6 +123,7 @@ export function buildRenderArgs(opts: {
     "-filter_complex", f.join(";"),
     "-map", "[vout]", "-map", `[${audioOut}]`,
     "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-threads", threads,
+    ...(opts.keyframeEvery ? ["-g", String(opts.keyframeEvery), "-keyint_min", String(opts.keyframeEvery)] : []),
     "-c:a", "aac", "-b:a", "160k",
     "-movflags", "+faststart",
     opts.output,

@@ -183,5 +183,9 @@ export async function renderWithHyperframes(opts: {
     buildComposition({ videoSrc: "base.mp4", duration: opts.duration, cues: opts.cues, style: opts.style, templates: opts.templates, gsapSrc: "gsap.min.js", fontsDir: "fonts" }),
   );
   const bin = join(process.cwd(), "node_modules", ".bin", "hyperframes");
-  await run(bin, ["render", project, "-o", opts.output, "--quality", "standard", "--fps", "30", "--quiet"]);
+  // Modo de poca memoria: un solo Chrome. En servidores chicos (1 GB) el modo automático se queda sin RAM.
+  await run(bin, [
+    "render", project, "-o", opts.output, "--quality", "standard", "--fps", "30", "--quiet",
+    "--workers", "1", "--low-memory-mode", "--frames-cache-dir", "off",
+  ]);
 }

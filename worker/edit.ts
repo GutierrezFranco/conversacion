@@ -134,7 +134,7 @@ export async function runEdit(job: Job, parent: Job | null): Promise<EditResult>
     await progress("render", 50);
     if (premium) {
       const cutFile = join(dir, "cut.mp4");
-      await render({ input: rawFile, output: cutFile, segments, overlays, music }, (f) => void progress("render", stretch(50, 70, f)));
+      await render({ input: rawFile, output: cutFile, segments, overlays, music, keyframeEvery: 30 }, (f) => void progress("render", stretch(50, 70, f)));
       await progress("render", 72);
       await renderWithHyperframes({ dir, video: cutFile, output: outFile, duration, cues, style, templates: placed, fontsDir: fontsDir() });
     } else {
