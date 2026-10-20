@@ -4,12 +4,15 @@
 
 import { fal, ApiError, ValidationError } from "@fal-ai/client";
 import { env } from "../lib/env";
+import { OUTPUT_RETENTION_DAYS, RAW_RETENTION_DAYS } from "../lib/storage-rules";
 import { runEdit } from "./edit";
 import { runImage, runVideo } from "./generate";
 import { db, type Job } from "./storage";
 
-fal.config({ credentials: env("FAL_KEY") });
 env("ANTHROPIC_API_KEY");
+env("ELEVENLABS_API_KEY");
+// fal solo hace falta si prendiste los generadores de imágenes y videos con IA.
+if (process.env.FAL_KEY) fal.config({ credentials: process.env.FAL_KEY });
 
 const CONCURRENCY = Number(process.env.WORKER_CONCURRENCY ?? 2);
 const IDLE_MS = 3000;
@@ -74,6 +77,26 @@ async function sweepStuckJobs() {
   for (const j of data ?? []) await db.rpc("fail_job", { p_job_id: j.id, p_error: "Se demoró demasiado. Te devolvimos los créditos." });
 }
 setInterval(() => sweepStuckJobs().catch((e) => console.error("sweep", e)), 60_000);
+
+// Borra crudos y reels viejos para que el almacenamiento no crezca sin control.
+// Los recursos de la carpeta (assets) no se tocan.
+async function cleanupOldFiles() {
+  const rules = [
+    { bucket: "uploads", folder: "raw", days: RAW_RETENTION_DAYS },
+    { bucket: "outputs", folder: "", days: OUTPUT_RETENTION_DAYS },
+  ];
+  for (const r of rules) {
+    const { data, error } = await db.rpc("expired_objects", { p_bucket: r.bucket, p_folder: r.folder, p_days: r.days });
+    if (error) throw error;
+    const names = (data ?? []) as string[];
+    if (names.length) {
+      await db.storage.from(r.bucket).remove(names);
+      console.log(`Limpieza: ${names.length} archivos viejos en ${r.bucket}/${r.folder || "*"}`);
+    }
+  }
+}
+cleanupOldFiles().catch((e) => console.error("limpieza", e));
+setInterval(() => cleanupOldFiles().catch((e) => console.error("limpieza", e)), 6 * 60 * 60 * 1000);
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {

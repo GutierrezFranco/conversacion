@@ -1,7 +1,10 @@
+import { notFound } from "next/navigation";
+import { AI_GENERATORS } from "@/lib/features";
 import { Generator } from "@/components/Generator";
 import { IMAGE_MODELS, imageCredits } from "@/lib/pricing";
 
 export default function ImagesPage() {
+  if (!AI_GENERATORS) notFound();
   const creditTable = Object.fromEntries(
     IMAGE_MODELS.map((m) => [m.id, Object.fromEntries([1, 2, 3, 4].map((n) => [n, imageCredits(m, n)]))]),
   );

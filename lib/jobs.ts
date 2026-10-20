@@ -1,5 +1,7 @@
 import { z } from "zod";
+import { AI_GENERATORS } from "./features";
 import { getStyle } from "./styles";
+import { normalizeInstance } from "./templates";
 import {
   EDIT_CREDITS,
   ITERATION_CREDITS,
@@ -25,6 +27,10 @@ export const editInput = z.object({
   rawPath: z.string().min(1),
   styleId: z.string(),
   resources: z.array(resourceSchema).max(10).default([]),
+  templates: z
+    .array(z.object({ templateId: z.string(), values: z.record(z.string(), z.string().max(200)), note: z.string().max(300).default("") }))
+    .max(8)
+    .default([]),
   instructions: z.string().max(2000).default(""),
 });
 
@@ -64,6 +70,7 @@ export type ResolvedJob = {
 // Valida contra el catálogo y devuelve el trabajo listo para cobrar. Lanza Error con un mensaje
 // para mostrarle al usuario si algo no cierra.
 export function resolveJob(input: Exclude<JobInput, { kind: "iterate" }>): ResolvedJob {
+  if (input.kind !== "edit" && !AI_GENERATORS) throw new Error("Los generadores con IA todavía no están disponibles.");
   switch (input.kind) {
     case "edit": {
       const style = getStyle(input.styleId);
@@ -71,7 +78,13 @@ export function resolveJob(input: Exclude<JobInput, { kind: "iterate" }>): Resol
       return {
         kind: "edit",
         title: input.title,
-        params: { rawPath: input.rawPath, styleId: style.id, resources: input.resources, instructions: input.instructions },
+        params: {
+          rawPath: input.rawPath,
+          styleId: style.id,
+          resources: input.resources,
+          templates: input.templates.map(normalizeInstance),
+          instructions: input.instructions,
+        },
         cost: EDIT_CREDITS,
       };
     }
@@ -110,6 +123,7 @@ export function iterationJob(parent: { id: string; title: string | null; params:
 }
 
 // Un usuario solo puede referenciar archivos dentro de su propia carpeta.
-export function ownsPath(userId: string, path: string): boolean {
-  return path.startsWith(`${userId}/`) && !path.includes("..");
+export function ownsPath(userId: string, path: string, folder?: "raw" | "assets"): boolean {
+  const prefix = folder ? `${userId}/${folder}/` : `${userId}/`;
+  return path.startsWith(prefix) && !path.includes("..");
 }

@@ -11,7 +11,17 @@ type JobDetail = JobSummary & {
   rawUrl: string | null;
 };
 
-export function ReelDetail({ id, iterationCost, styleNames }: { id: string; iterationCost: number; styleNames: Record<string, string> }) {
+export function ReelDetail({
+  id,
+  iterationCost,
+  iterationPrice,
+  styleNames,
+}: {
+  id: string;
+  iterationCost: number;
+  iterationPrice: string;
+  styleNames: Record<string, string>;
+}) {
   const router = useRouter();
   const [job, setJob] = useState<JobDetail | null>(null);
   const [notFound, setNotFound] = useState(false);
@@ -122,7 +132,7 @@ export function ReelDetail({ id, iterationCost, styleNames }: { id: string; iter
             <div className="card stack">
               <div>
                 <b>¿Querés cambiar algo?</b>
-                <div className="muted small">Contanos qué ajustar y lo volvemos a editar por {iterationCost} créditos.</div>
+                <div className="muted small">Contanos qué ajustar y lo volvemos a editar por {iterationCost} créditos ({iterationPrice}).</div>
               </div>
               <textarea
                 placeholder="Ej: el principio está muy cortado, dejá la primera frase entera. Mostrá el logo al final."
@@ -131,7 +141,7 @@ export function ReelDetail({ id, iterationCost, styleNames }: { id: string; iter
               />
               {error && <div className="alert">{error}</div>}
               <button className="btn" disabled={changes.trim().length < 3 || sending} onClick={iterate}>
-                {sending ? "Enviando…" : `Pedir cambios · ${iterationCost} créditos`}
+                {sending ? "Enviando…" : `Pedir cambios · ${iterationPrice}`}
               </button>
             </div>
           )}

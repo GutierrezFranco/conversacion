@@ -25,8 +25,8 @@ export const STYLES: EditStyle[] = [
   {
     id: "tech",
     name: "Tech Cinemático",
-    tagline: "Tutoriales con onda",
-    description: "Cortes rápidos, subtítulos grandes y capturas de la herramienta en el momento justo.",
+    tagline: "Reparaciones paso a paso",
+    description: "Cortes rápidos, subtítulos grandes y tus fotos en el momento justo. Ideal para mostrar una reparación.",
     direction:
       "Ritmo rápido. Sacá todas las pausas y muletillas. Mostrá los recursos (capturas, pantallas) exactamente cuando se mencionan. Destacá nombres de herramientas, números y resultados.",
     captions: {
@@ -63,8 +63,8 @@ export const STYLES: EditStyle[] = [
   {
     id: "impacto",
     name: "Impacto",
-    tagline: "Ventas y anuncios",
-    description: "Frases cortas, una o dos palabras por pantalla y destacados fuertes. Para vender.",
+    tagline: "Promos y precios",
+    description: "Frases cortas, una o dos palabras por pantalla y destacados fuertes. Para ofertas y servicios.",
     direction:
       "Ritmo muy rápido, estilo anuncio. Cortes agresivos entre frases. Destacá beneficios, precios, llamados a la acción.",
     captions: {
@@ -82,8 +82,8 @@ export const STYLES: EditStyle[] = [
   {
     id: "storytelling",
     name: "Storytelling",
-    tagline: "Historias personales",
-    description: "Subtítulos claros, cortes limpios y un tono cercano para contar historias.",
+    tagline: "Casos y anécdotas",
+    description: "Subtítulos claros y cortes limpios para contar el caso del cliente o cómo arrancaste.",
     direction:
       "Ritmo natural. Respetá la narración: sacá solo errores, repeticiones y silencios muy largos. Destacá el giro de la historia.",
     captions: {
@@ -101,8 +101,8 @@ export const STYLES: EditStyle[] = [
   {
     id: "podcast",
     name: "Clip de podcast",
-    tagline: "Charlas y entrevistas",
-    description: "Subtítulos en caja muy legibles. Para clips de charlas largas.",
+    tagline: "Consejos y respuestas",
+    description: "Subtítulos muy legibles para videos donde explicás o respondés preguntas.",
     direction:
       "Encontrá el fragmento más fuerte y autocontenido. Cortes mínimos dentro de las frases. Destacá la idea central.",
     captions: {

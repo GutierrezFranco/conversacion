@@ -50,8 +50,8 @@ export function POST(request: Request) {
       job = iterationJob(parent, input.changes);
     } else {
       if (input.kind === "edit") {
-        const paths = [input.rawPath, ...input.resources.map((r) => r.path)];
-        if (!paths.every((p) => ownsPath(user.id, p))) throw new HttpError("Archivo inválido.", 403);
+        const ok = ownsPath(user.id, input.rawPath, "raw") && input.resources.every((r) => ownsPath(user.id, r.path, "assets"));
+        if (!ok) throw new HttpError("Archivo inválido.", 403);
       }
       try {
         job = resolveJob(input);

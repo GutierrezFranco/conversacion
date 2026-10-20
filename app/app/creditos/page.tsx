@@ -1,6 +1,6 @@
 import { BuyButton } from "@/components/BuyButton";
 import { getBalance } from "@/lib/api";
-import { EDIT_CREDITS, PACKS, packPriceArs } from "@/lib/pricing";
+import { CREDIT_PRICE_ARS, EDIT_CREDITS, ITERATION_CREDITS, PACKS, formatArs, pricePerVideo } from "@/lib/pricing";
 import { createClient, getUser } from "@/lib/supabase/server";
 
 const REASON_LABEL: Record<string, string> = {
@@ -27,7 +27,6 @@ export default async function CreditsPage({ searchParams }: { searchParams: Prom
     .select("id, delta, reason, created_at")
     .order("created_at", { ascending: false })
     .limit(30);
-  const arsPerUsd = Number(process.env.ARS_PER_USD ?? 1450);
   const message = estado ? STATUS_MESSAGE[estado] : undefined;
 
   return (
@@ -35,7 +34,10 @@ export default async function CreditsPage({ searchParams }: { searchParams: Prom
       <div>
         <h1>Créditos</h1>
         <p className="muted" style={{ margin: 0 }}>
-          Tenés <b style={{ color: "var(--text)" }}>{balance} créditos</b>. Una edición cuesta {EDIT_CREDITS}.
+          Tenés <b style={{ color: "var(--text)" }}>{balance} créditos</b>
+          {balance >= EDIT_CREDITS ? ` (alcanza para ${Math.floor(balance / EDIT_CREDITS)} ${Math.floor(balance / EDIT_CREDITS) === 1 ? "video" : "videos"})` : ""}. Un
+          video editado son {EDIT_CREDITS} créditos ({formatArs(EDIT_CREDITS * CREDIT_PRICE_ARS)}) y cada ronda de cambios,{" "}
+          {ITERATION_CREDITS} ({formatArs(ITERATION_CREDITS * CREDIT_PRICE_ARS)}).
         </p>
       </div>
 
@@ -48,9 +50,9 @@ export default async function CreditsPage({ searchParams }: { searchParams: Prom
               <h3 style={{ margin: 0 }}>{p.name}</h3>
               {p.highlight && <span className="pill pill-accent">Más elegido</span>}
             </div>
-            <div className="price">${packPriceArs(p, arsPerUsd).toLocaleString("es-AR")}</div>
+            <div className="price">{formatArs(p.priceArs)}</div>
             <div className="muted">
-              {p.credits} créditos · unas {Math.floor(p.credits / EDIT_CREDITS)} ediciones
+              {p.credits} créditos · {formatArs(pricePerVideo(p))} por video
             </div>
             <BuyButton packId={p.id} primary={p.highlight} />
           </div>

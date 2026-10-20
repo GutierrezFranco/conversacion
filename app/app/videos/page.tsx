@@ -1,7 +1,10 @@
+import { notFound } from "next/navigation";
+import { AI_GENERATORS } from "@/lib/features";
 import { Generator } from "@/components/Generator";
 import { VIDEO_MODELS, videoCredits } from "@/lib/pricing";
 
 export default function VideosPage() {
+  if (!AI_GENERATORS) notFound();
   const creditTable = Object.fromEntries(
     VIDEO_MODELS.map((m) => [m.id, Object.fromEntries(m.durations.map((s) => [s, videoCredits(m, s)]))]),
   );

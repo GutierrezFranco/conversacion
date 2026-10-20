@@ -108,7 +108,7 @@ export function buildCues(words: Word[], segments: Segment[], highlights: Set<nu
   return cues;
 }
 
-function assTime(t: number): string {
+export function assTime(t: number): string {
   const cs = Math.max(0, Math.round(t * 100));
   const h = Math.floor(cs / 360000);
   const m = Math.floor((cs % 360000) / 6000);
@@ -122,7 +122,7 @@ function escapeAss(text: string): string {
 }
 
 // Genera el archivo .ass que ffmpeg dibuja encima del video.
-export function toAss(cues: Cue[], style: EditStyle): string {
+export function toAss(cues: Cue[], style: EditStyle, extraEvents: string[] = []): string {
   const c = style.captions;
   const header = [
     "[Script Info]",
@@ -135,6 +135,8 @@ export function toAss(cues: Cue[], style: EditStyle): string {
     "[V4+ Styles]",
     "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
     `Style: Main,${c.font},${c.size},${c.primary},${c.highlight},${c.outline},&H64000000,0,0,0,0,100,100,0,0,1,${c.outlineWidth},0,2,80,80,${c.marginV},1`,
+    // Base para las plantillas: cada evento trae su fuente, color y posición.
+    "Style: Tpl,Poppins Bold,60,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1",
     "",
     "[Events]",
     "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
@@ -153,5 +155,5 @@ export function toAss(cues: Cue[], style: EditStyle): string {
     return `Dialogue: 0,${assTime(cue.start)},${assTime(cue.end)},Main,,0,0,0,,${pop}${text}`;
   });
 
-  return [...header, ...lines, ""].join("\n");
+  return [...header, ...lines, ...extraEvents, ""].join("\n");
 }

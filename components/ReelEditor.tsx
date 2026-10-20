@@ -2,22 +2,27 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { api, uploadFile } from "@/lib/client";
+import { AssetLibrary } from "@/components/AssetLibrary";
+import { api, uploadFile, type Asset } from "@/lib/client";
+import { RAW_MAX_BYTES } from "@/lib/storage-rules";
 import { STYLES } from "@/lib/styles";
+import { TEMPLATES, getTemplate, type TemplateInstance } from "@/lib/templates";
 
-type Resource = { file: File; path?: string; progress: number; note: string; kind: "image" | "video" };
+type Resource = { asset: Asset; note: string };
+type TemplateDraft = TemplateInstance & { key: number };
 
-export function ReelEditor({ cost }: { cost: number }) {
+export function ReelEditor({ cost, priceLabel }: { cost: number; priceLabel: string }) {
   const router = useRouter();
   const rawInput = useRef<HTMLInputElement>(null);
-  const resInput = useRef<HTMLInputElement>(null);
+  const nextKey = useRef(1);
 
   const [raw, setRaw] = useState<File | null>(null);
   const [rawPath, setRawPath] = useState<string | null>(null);
   const [rawProgress, setRawProgress] = useState(0);
   const [styleId, setStyleId] = useState(STYLES[0].id);
   const [resources, setResources] = useState<Resource[]>([]);
-  const [showResources, setShowResources] = useState(false);
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [templates, setTemplates] = useState<TemplateDraft[]>([]);
   const [instructions, setInstructions] = useState("");
   const [drag, setDrag] = useState(false);
   const [error, setError] = useState("");
@@ -25,42 +30,42 @@ export function ReelEditor({ cost }: { cost: number }) {
 
   async function pickRaw(file: File | undefined) {
     if (!file) return;
-    if (file.size > 1024 * 1024 * 1024) return setError("El video pesa más de 1 GB. Exportalo más liviano.");
+    if (file.size > RAW_MAX_BYTES) return setError("El video pesa más de 1 GB. Exportalo más liviano.");
     setError("");
     setRaw(file);
     setRawPath(null);
     setRawProgress(0);
     try {
-      setRawPath(await uploadFile(file, setRawProgress));
+      setRawPath(await uploadFile(file, "raw", setRawProgress));
     } catch (e) {
       setError((e as Error).message);
       setRaw(null);
     }
   }
 
-  async function addResources(files: FileList | null) {
-    if (!files) return;
-    const added: Resource[] = Array.from(files)
-      .slice(0, 10 - resources.length)
-      .filter((f) => f.size <= 50 * 1024 * 1024)
-      .map((file) => ({ file, progress: 0, note: "", kind: file.type.startsWith("video") ? "video" : "image" }));
-    setResources((prev) => [...prev, ...added]);
-    for (const r of added) {
-      try {
-        const path = await uploadFile(r.file, (p) => update(r.file, { progress: p }));
-        update(r.file, { path, progress: 100 });
-      } catch {
-        setError(`No se pudo subir ${r.file.name}.`);
-        setResources((prev) => prev.filter((x) => x.file !== r.file));
-      }
-    }
+  function toggleAsset(asset: Asset) {
+    setResources((prev) =>
+      prev.some((r) => r.asset.id === asset.id)
+        ? prev.filter((r) => r.asset.id !== asset.id)
+        : prev.length >= 10
+          ? prev
+          : [...prev, { asset, note: "" }],
+    );
   }
 
-  function update(file: File, patch: Partial<Resource>) {
-    setResources((prev) => prev.map((r) => (r.file === file ? { ...r, ...patch } : r)));
+  function addTemplate(templateId: string) {
+    if (templates.length >= 8) return;
+    setTemplates((prev) => [...prev, { key: nextKey.current++, templateId, values: {}, note: "" }]);
   }
 
-  const uploading = (raw && !rawPath) || resources.some((r) => !r.path);
+  function updateTemplate(key: number, patch: Partial<TemplateInstance>) {
+    setTemplates((prev) => prev.map((t) => (t.key === key ? { ...t, ...patch, values: { ...t.values, ...patch.values } } : t)));
+  }
+
+  const missingTemplate = templates.find((t) =>
+    getTemplate(t.templateId)?.fields.some((f) => !f.optional && !(t.values[f.key] ?? "").trim()),
+  );
+  const uploading = raw && !rawPath;
 
   async function submit() {
     if (!rawPath) return;
@@ -73,7 +78,8 @@ export function ReelEditor({ cost }: { cost: number }) {
         rawPath,
         styleId,
         instructions,
-        resources: resources.map((r) => ({ path: r.path!, name: r.file.name, kind: r.kind, note: r.note })),
+        resources: resources.map((r) => ({ path: r.asset.path, name: r.asset.name, kind: r.asset.kind, note: r.note })),
+        templates: templates.map(({ templateId, values, note }) => ({ templateId, values, note })),
       });
       router.push(`/app/reel/${job.id}`);
       router.refresh();
@@ -86,9 +92,9 @@ export function ReelEditor({ cost }: { cost: number }) {
   return (
     <div className="stack">
       <div>
-        <h1>Editá tu reel con IA</h1>
+        <h1>Editá tu reel</h1>
         <p className="muted" style={{ margin: 0 }}>
-          Subí tu crudo, elegí un estilo y nosotros lo editamos por vos.
+          Subí tu crudo, elegí un estilo y te lo devolvemos cortado, con subtítulos y tus recursos.
         </p>
       </div>
 
@@ -123,7 +129,7 @@ export function ReelEditor({ cost }: { cost: number }) {
         ) : (
           <>
             <b>Subí tu video</b>
-            <div className="muted small">Arrastralo acá o tocá para elegirlo · MP4 o MOV hasta 1 GB</div>
+            <div className="muted small">Arrastralo acá o tocá para elegirlo · MP4 o MOV hasta 1 GB y 5 minutos</div>
           </>
         )}
       </div>
@@ -144,67 +150,129 @@ export function ReelEditor({ cost }: { cost: number }) {
 
       <div className="card stack">
         <div className="row">
-          <div>
-            <b>¿Querés agregar recursos?</b>
-            <div className="muted small">Capturas, tu logo, b-roll o fotos de producto para que aparezcan en la edición.</div>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <b>Recursos</b>
+            <div className="muted small">Capturas, tu logo, fotos de antes y después. Contá para qué es cada uno y dónde va.</div>
           </div>
-          <div className="spacer" />
-          {!showResources && (
-            <button className="btn" onClick={() => setShowResources(true)}>
-              Sí, agregar
-            </button>
-          )}
+          <button className="btn" onClick={() => setShowLibrary((v) => !v)}>
+            {showLibrary ? "Listo" : resources.length ? "Agregar más" : "Elegir de mi carpeta"}
+          </button>
         </div>
 
-        {showResources && (
-          <>
-            <div className="dropzone" style={{ padding: 20 }} onClick={() => resInput.current?.click()}>
-              <input ref={resInput} type="file" accept="image/*,video/*" multiple hidden onChange={(e) => addResources(e.target.files)} />
-              <b>Agregá recursos</b>
-              <div className="muted small">Imágenes o videos de hasta 50 MB cada uno (máximo 10)</div>
+        {showLibrary && (
+          <AssetLibrary
+            mode="pick"
+            picked={resources.map((r) => r.asset.id)}
+            onPick={toggleAsset}
+            onUploaded={(a) => setResources((prev) => (prev.length >= 10 ? prev : [...prev, { asset: a, note: "" }]))}
+          />
+        )}
+
+        {resources.map((r) => (
+          <div key={r.asset.id} className="row" style={{ alignItems: "flex-start" }}>
+            {r.asset.url && r.asset.kind === "image" ? (
+              <img className="mini-thumb" src={r.asset.url} alt="" />
+            ) : (
+              <div className="mini-thumb" style={{ display: "grid", placeItems: "center" }}>
+                ▶
+              </div>
+            )}
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div className="small" style={{ marginBottom: 6 }}>
+                {r.asset.name}
+              </div>
+              <input
+                type="text"
+                placeholder="¿Para qué es? Ej: foto del módulo roto, mostrala cuando digo «así llegó el equipo»"
+                value={r.note}
+                onChange={(e) => setResources((prev) => prev.map((x) => (x.asset.id === r.asset.id ? { ...x, note: e.target.value } : x)))}
+              />
             </div>
-            {resources.map((r) => (
-              <div key={r.file.name + r.file.size} className="row" style={{ alignItems: "flex-start" }}>
-                <span className="pill">{r.kind === "video" ? "Video" : "Imagen"}</span>
-                <div style={{ flex: 1, minWidth: 200 }}>
-                  <div className="small" style={{ marginBottom: 6 }}>
-                    {r.file.name} {r.path ? "✓" : `· ${r.progress}%`}
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="¿Para qué es? Ej: captura de la herramienta, mostrala cuando digo «entrás a la página»"
-                    value={r.note}
-                    onChange={(e) => update(r.file, { note: e.target.value })}
-                  />
-                </div>
-                <button className="btn btn-ghost" onClick={() => setResources((prev) => prev.filter((x) => x !== r))}>
+            <button className="btn btn-ghost" onClick={() => toggleAsset(r.asset)}>
+              Quitar
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="card stack">
+        <div>
+          <b>Plantillas</b>
+          <div className="muted small">Carteles listos: escribís el texto y aparecen en el momento justo. Sin costo extra.</div>
+        </div>
+        <div className="row">
+          {TEMPLATES.map((t) => (
+            <button key={t.id} className="btn" onClick={() => addTemplate(t.id)} title={t.description}>
+              + {t.name}
+            </button>
+          ))}
+        </div>
+
+        {templates.map((t) => {
+          const def = getTemplate(t.templateId)!;
+          return (
+            <div key={t.key} className="card stack" style={{ background: "var(--surface-2)" }}>
+              <div className="row">
+                <b>{def.name}</b>
+                <span className="muted small">{def.description}</span>
+                <div className="spacer" />
+                <button className="btn btn-ghost" onClick={() => setTemplates((prev) => prev.filter((x) => x.key !== t.key))}>
                   Quitar
                 </button>
               </div>
-            ))}
-          </>
-        )}
+              <div className="grid grid-3">
+                {def.fields.map((f) => (
+                  <div key={f.key}>
+                    <label className="small">
+                      {f.label}
+                      {f.optional && <span className="muted"> (opcional)</span>}
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={f.maxLength}
+                      placeholder={f.placeholder}
+                      value={t.values[f.key] ?? ""}
+                      onChange={(e) => updateTemplate(t.key, { values: { [f.key]: e.target.value } })}
+                    />
+                  </div>
+                ))}
+              </div>
+              <input
+                type="text"
+                placeholder="¿Cuándo aparece? (opcional) Ej: cuando digo «el presupuesto»"
+                value={t.note}
+                onChange={(e) => updateTemplate(t.key, { note: e.target.value })}
+              />
+            </div>
+          );
+        })}
+      </div>
 
-        <div>
-          <label htmlFor="instr">Indicaciones extra (opcional)</label>
-          <textarea
-            id="instr"
-            placeholder="Ej: cortá la parte donde me trabo al principio, el cierre que diga «Comentá GUÍA»."
-            value={instructions}
-            onChange={(e) => setInstructions(e.target.value)}
-          />
-        </div>
+      <div className="card">
+        <label htmlFor="instr">Indicaciones extra (opcional)</label>
+        <textarea
+          id="instr"
+          placeholder="Ej: cortá la parte donde me trabo al principio, el cierre que diga «Escribime por WhatsApp»."
+          value={instructions}
+          onChange={(e) => setInstructions(e.target.value)}
+        />
       </div>
 
       {error && <div className="alert">{error}</div>}
 
       <div className="row">
         <span className="muted">
-          Cuesta <b style={{ color: "var(--text)" }}>{cost} créditos</b>. Si algo falla, te los devolvemos.
+          Cuesta <b style={{ color: "var(--text)" }}>{cost} créditos ({priceLabel})</b>. Si algo falla, te los devolvemos.
         </span>
         <div className="spacer" />
-        <button className="btn btn-primary" disabled={!rawPath || !!uploading || sending} onClick={submit}>
-          {sending ? "Enviando…" : uploading ? "Esperá que termine de subir…" : "Editar mi video"}
+        <button className="btn btn-primary" disabled={!rawPath || !!uploading || sending || !!missingTemplate} onClick={submit}>
+          {sending
+            ? "Enviando…"
+            : uploading
+              ? "Esperá que termine de subir…"
+              : missingTemplate
+                ? `Completá la plantilla ${getTemplate(missingTemplate.templateId)?.name}`
+                : "Editar mi video"}
         </button>
       </div>
     </div>

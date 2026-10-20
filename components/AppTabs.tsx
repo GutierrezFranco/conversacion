@@ -2,11 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { AI_GENERATORS } from "@/lib/features";
 
 const tabs = [
   { href: "/app", label: "✂ Editá tu reel" },
-  { href: "/app/imagenes", label: "Generador de imágenes" },
-  { href: "/app/videos", label: "Generador de videos" },
+  { href: "/app/recursos", label: "Mis recursos" },
+  ...(AI_GENERATORS
+    ? [
+        { href: "/app/imagenes", label: "Imágenes con IA" },
+        { href: "/app/videos", label: "Videos con IA" },
+      ]
+    : []),
   { href: "/app/creditos", label: "Créditos" },
 ];
 

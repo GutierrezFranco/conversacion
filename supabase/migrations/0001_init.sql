@@ -98,7 +98,7 @@ as $$
 begin
   insert into public.profiles (id, email) values (new.id, new.email);
   insert into public.credit_ledger (user_id, delta, reason, ref)
-    values (new.id, 30, 'signup_bonus', new.id::text); -- mismo valor que SIGNUP_BONUS_CREDITS en lib/pricing.ts
+    values (new.id, 10, 'signup_bonus', new.id::text); -- mismo valor que SIGNUP_BONUS_CREDITS en lib/pricing.ts
   return new;
 end;
 $$;

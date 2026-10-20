@@ -3,7 +3,7 @@ import { z } from "zod";
 import { handle, HttpError, requireUser } from "@/lib/api";
 import { env, appUrl } from "@/lib/env";
 import { createPreference } from "@/lib/mercadopago";
-import { getPack, packPriceArs } from "@/lib/pricing";
+import { getPack } from "@/lib/pricing";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const body = z.object({ packId: z.string() });
@@ -15,7 +15,7 @@ export function POST(request: Request) {
     const pack = parsed.success ? getPack(parsed.data.packId) : undefined;
     if (!pack) throw new HttpError("Ese paquete no existe.", 400);
 
-    const amountArs = packPriceArs(pack, Number(env("ARS_PER_USD")));
+    const amountArs = pack.priceArs;
     const admin = createAdminClient();
 
     const { data: purchase, error } = await admin
@@ -27,7 +27,7 @@ export function POST(request: Request) {
 
     const preference = await createPreference({
       purchaseId: purchase.id,
-      title: `Edición Simple · ${pack.credits} créditos (${pack.name})`,
+      title: `Edición Simple · ${pack.name}`,
       amountArs,
       payerEmail: user.email,
       appUrl: appUrl(),

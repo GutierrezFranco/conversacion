@@ -1,49 +1,58 @@
 // Todo lo que define cuánto cobrás vive acá. Cambiá estos números sin tocar el resto del código.
 //
-// Cómo se calcula el precio de cada acción:
-//   créditos = ceil(costo real en USD × MARGEN / VALOR_BASE_DEL_CRÉDITO)
-// Con MARGEN 3 y crédito a US$0,05, una acción que te cuesta US$0,10 se cobra 6 créditos (US$0,30).
-// El margen tiene que cubrir la comisión de Mercado Pago, impuestos y los trabajos que fallan.
+// Precio pensado para técnicos: $5.000 por video editado y $2.500 por cada ronda de cambios
+// (o sea, hasta $7.500 con una iteración). Por dentro se maneja con créditos:
+//   1 crédito = $500 · una edición = 10 créditos · pedir cambios = 5 créditos
 
-export const CREDIT_BASE_USD = 0.05;
-export const MARGIN = 3;
-export const SIGNUP_BONUS_CREDITS = 30; // alcanza para una edición de prueba
+export const CREDIT_PRICE_ARS = 500;
+export const EDIT_CREDITS = 10;
+export const ITERATION_CREDITS = 5;
+export const SIGNUP_BONUS_CREDITS = 10; // una edición gratis para probar
 
-export function creditsFor(costUsd: number): number {
-  // El redondeo previo evita que errores de coma flotante (6.0000001) sumen un crédito de más.
-  const raw = Math.round(((costUsd * MARGIN) / CREDIT_BASE_USD) * 1e6) / 1e6;
-  return Math.max(1, Math.ceil(raw));
-}
+// Costo real estimado (Claude + transcripción + render). Con el dólar a $1.450 una edición te
+// cuesta unos $600 y la cobrás $5.000. Revisalo con tus facturas del primer mes.
+export const EDIT_COST_USD = 0.4;
+export const ITERATION_COST_USD = 0.15;
 
-// ---------- Paquetes de créditos ----------
+// ---------- Paquetes ----------
 
-export type Pack = { id: string; name: string; credits: number; priceUsd: number; highlight?: boolean };
+export type Pack = { id: string; name: string; credits: number; priceArs: number; highlight?: boolean };
 
 export const PACKS: Pack[] = [
-  { id: "starter", name: "Starter", credits: 200, priceUsd: 10 },
-  { id: "creator", name: "Creator", credits: 600, priceUsd: 27, highlight: true },
-  { id: "pro", name: "Pro", credits: 1500, priceUsd: 60 },
+  { id: "uno", name: "1 video", credits: 10, priceArs: 5000 },
+  { id: "cinco", name: "5 videos", credits: 50, priceArs: 22500, highlight: true },
+  { id: "diez", name: "10 videos", credits: 100, priceArs: 40000 },
 ];
 
 export function getPack(id: string): Pack | undefined {
   return PACKS.find((p) => p.id === id);
 }
 
-export function packPriceArs(pack: Pack, arsPerUsd: number): number {
-  // Redondeo a $100 para que el precio se vea prolijo.
-  return Math.ceil((pack.priceUsd * arsPerUsd) / 100) * 100;
+export function videosIn(pack: Pack): number {
+  return Math.floor(pack.credits / EDIT_CREDITS);
 }
 
-// ---------- Edición de reels ----------
+export function pricePerVideo(pack: Pack): number {
+  return Math.round(pack.priceArs / videosIn(pack));
+}
 
-// Costo estimado de una edición: Claude (plan de edición) + transcripción + render.
-// Revisalo con tus facturas reales del primer mes.
-export const EDIT_COST_USD = 0.4;
-// Pedir cambios sobre una edición ya hecha reusa la transcripción, así que cuesta menos.
-export const ITERATION_COST_USD = 0.15;
+export function formatArs(n: number): string {
+  return `$${n.toLocaleString("es-AR")}`;
+}
 
-export const EDIT_CREDITS = creditsFor(EDIT_COST_USD);
-export const ITERATION_CREDITS = creditsFor(ITERATION_COST_USD);
+// ---------- Generadores con IA (opcionales) ----------
+// Se cobran según lo que cuestan en fal, con este margen.
+export const MARGIN = 3;
+
+export function creditsFor(costUsd: number, arsPerUsd: number): number {
+  // El redondeo previo evita que errores de coma flotante (6.0000001) sumen un crédito de más.
+  const raw = Math.round(((costUsd * arsPerUsd * MARGIN) / CREDIT_PRICE_ARS) * 1e6) / 1e6;
+  return Math.max(1, Math.ceil(raw));
+}
+
+export function arsPerUsd(): number {
+  return Number(process.env.ARS_PER_USD ?? 1450);
+}
 
 // ---------- Modelos de imagen y video (fal.ai) ----------
 // Precios de fal consultados en octubre 2026. Verificalos en fal.ai/pricing antes de lanzar:
@@ -111,10 +120,10 @@ export const VIDEO_MODELS: VideoModel[] = [
   },
 ];
 
-export function imageCredits(model: ImageModel, count: number): number {
-  return creditsFor(model.costPerImageUsd * count);
+export function imageCredits(model: ImageModel, count: number, rate = arsPerUsd()): number {
+  return creditsFor(model.costPerImageUsd * count, rate);
 }
 
-export function videoCredits(model: VideoModel, seconds: number): number {
-  return creditsFor(model.costPerSecondUsd * seconds);
+export function videoCredits(model: VideoModel, seconds: number, rate = arsPerUsd()): number {
+  return creditsFor(model.costPerSecondUsd * seconds, rate);
 }

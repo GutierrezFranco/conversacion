@@ -1,11 +1,14 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fal } from "@fal-ai/client";
+import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
+import { env } from "../lib/env";
 import { getStyle } from "../lib/styles";
+import { getTemplate, type TemplateInstance } from "../lib/templates";
 import { extractAudio, fontsDir, probe, render, type RenderOverlay } from "./media";
-import { planEdit, type EditPlan, type PlanResource } from "./plan";
-import { buildCues, buildSegments, mapWordRange, outputDuration, toAss, type Word } from "./timeline";
+import { planEdit, type EditPlan, type PlanResource, type PlanTemplate } from "./plan";
+import { placeTemplates, templateEvents } from "./templates";
+import { assTime, buildCues, buildSegments, mapWordRange, outputDuration, toAss, type Word } from "./timeline";
 import { download, uploadOutput, type Job, type JobResult } from "./storage";
 
 const MAX_RAW_SECONDS = 5 * 60;
@@ -14,20 +17,27 @@ type EditParams = {
   rawPath: string;
   styleId: string;
   resources: { path: string; name: string; kind: "image" | "video"; note: string }[];
+  templates?: TemplateInstance[];
   instructions: string;
   changes?: string;
 };
 
 type EditResult = JobResult & { words: Word[]; plan: EditPlan; duration: number; summary: string };
 
+// Transcripción palabra por palabra con ElevenLabs Scribe.
+// No limpiamos muletillas acá: Claude necesita verlas con sus tiempos para cortarlas.
 async function transcribe(audioFile: string): Promise<Word[]> {
-  const url = await fal.storage.upload(new Blob([await readFile(audioFile)], { type: "audio/mpeg" }));
-  const { data } = await fal.subscribe("fal-ai/elevenlabs/speech-to-text/scribe-v2", {
-    input: { audio_url: url, language_code: "spa", diarize: false, tag_audio_events: false },
+  const client = new ElevenLabsClient({ apiKey: env("ELEVENLABS_API_KEY") });
+  const res = await client.speechToText.convert({
+    file: new Blob([await readFile(audioFile)], { type: "audio/mpeg" }),
+    modelId: "scribe_v2",
+    languageCode: "spa",
+    timestampsGranularity: "word",
+    diarize: false,
+    tagAudioEvents: false,
   });
-  const out = data as { words: { text: string; type: string; start: number | null; end: number | null }[] };
-  return out.words
-    .filter((w) => w.type === "word" && w.start !== null && w.end !== null)
+  return res.words
+    .filter((w) => w.type === "word" && w.start !== undefined && w.end !== undefined)
     .map((w, i) => ({ i, text: w.text.trim(), start: w.start!, end: w.end! }));
 }
 
@@ -57,10 +67,16 @@ export async function runEdit(job: Job, parent: Job | null): Promise<EditResult>
     if (words.length < 3) throw new Error("No escuchamos a nadie hablando en el video.");
 
     const resources: PlanResource[] = params.resources.map((r, index) => ({ index, kind: r.kind, name: r.name, note: r.note }));
+    const templateList = params.templates ?? [];
+    const templates: PlanTemplate[] = templateList.map((t, index) => {
+      const def = getTemplate(t.templateId);
+      return { index, name: def?.name ?? t.templateId, text: Object.values(t.values).filter(Boolean).join(" · "), hint: def?.hint ?? "", note: t.note };
+    });
     const plan = await planEdit({
       words,
       style,
       resources,
+      templates,
       instructions: params.instructions,
       previous: parentResult?.plan && params.changes ? { plan: parentResult.plan, changes: params.changes } : undefined,
     });
@@ -74,14 +90,25 @@ export async function runEdit(job: Job, parent: Job | null): Promise<EditResult>
       const range = res && mapWordRange(words, segments, o.fromWord, o.toWord);
       if (!res || !range) continue;
       const file = join(dir, `res-${o.resource}`);
-      if (!overlays.some((x) => x.file === file)) await download("uploads", res.path, file);
+      if (!overlays.some((x) => x.file === file)) {
+        try {
+          await download("uploads", res.path, file);
+        } catch {
+          continue; // el usuario borró el recurso de su carpeta: seguimos sin él
+        }
+      }
       // Mínimo 1,2 s en pantalla para que se llegue a ver.
       const end = Math.min(Math.max(range.end, range.start + 1.2), outputDuration(segments));
       overlays.push({ file, kind: res.kind, start: range.start, end, layout: o.layout });
     }
 
+    const duration = outputDuration(segments);
+    const placed = placeTemplates(templateList, plan.templates, (a, b) => mapWordRange(words, segments, a, b), duration);
+    const templateLines = placed.flatMap((p) => templateEvents(p.instance, { start: assTime(p.start), end: assTime(p.end) }));
+
     const assFile = join(dir, "subs.ass");
-    await writeFile(assFile, toAss(buildCues(words, segments, new Set(plan.highlights), style.captions.wordsPerLine), style));
+    const cues = buildCues(words, segments, new Set(plan.highlights), style.captions.wordsPerLine);
+    await writeFile(assFile, toAss(cues, style, templateLines));
 
     const outFile = join(dir, "out.mp4");
     await render({ input: rawFile, output: outFile, segments, overlays, assFile, fontsDir: fontsDir() });
@@ -91,7 +118,7 @@ export async function runEdit(job: Job, parent: Job | null): Promise<EditResult>
       outputs: [{ path, type: "video" }],
       words,
       plan,
-      duration: outputDuration(segments),
+      duration,
       summary: plan.summary,
     };
   } finally {

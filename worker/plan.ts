@@ -28,22 +28,33 @@ export const editPlanSchema = z.object({
       }),
     )
     .describe("Cuándo se muestra cada recurso, anclado a las palabras en las que se menciona"),
+  templates: z
+    .array(
+      z.object({
+        template: z.number().int().describe("Número de la plantilla"),
+        fromWord: z.number().int(),
+        toWord: z.number().int(),
+      }),
+    )
+    .describe("Cuándo se muestra cada plantilla. Incluí todas las plantillas que mandó el usuario."),
   summary: z.string().describe("Dos o tres oraciones, en español rioplatense, contándole al usuario qué se hizo"),
 });
 
 export type EditPlan = z.infer<typeof editPlanSchema>;
 
 export type PlanResource = { index: number; kind: "image" | "video"; name: string; note: string };
+export type PlanTemplate = { index: number; name: string; text: string; hint: string; note: string };
 
 type PlanInput = {
   words: Word[];
   style: EditStyle;
   resources: PlanResource[];
+  templates: PlanTemplate[];
   instructions: string;
   previous?: { plan: EditPlan; changes: string };
 };
 
-const SYSTEM = `Sos el editor de video de "Edición Simple". Editás reels verticales para creadores de contenido que graban con el celular y no saben editar.
+const SYSTEM = `Sos el editor de video de "Edición Simple". Editás reels verticales de técnicos de celulares y otros emprendedores que graban con el celular y no quieren perder horas editando.
 
 Recibís la transcripción del video crudo con cada palabra numerada y su tiempo en segundos. Devolvés un plan de edición:
 - keep: los fragmentos que quedan, por índice de palabra. Cortá errores, frases repetidas (quedate con la mejor toma, casi siempre la última), muletillas ("eh", "este", "o sea" sueltos), arranques en falso y silencios. Nunca cortes en medio de una idea. El resultado tiene que entenderse solo.
@@ -51,6 +62,7 @@ Recibís la transcripción del video crudo con cada palabra numerada y su tiempo
 - highlights: entre 1 y 3 palabras clave por frase como máximo (números, beneficios, nombres de herramientas, la palabra que da el giro).
 - zoom: usalo en fragmentos de énfasis, alternando para dar ritmo. No en todos.
 - overlays: mostrá cada recurso justo cuando se lo menciona, según la nota del usuario. Solo usá palabras que hayas dejado en keep. Si una nota no tiene relación con lo que se dice, ubicá el recurso donde mejor encaje.
+- templates: son carteles gráficos (cajita de preguntas, título gancho, precio, etiqueta, llamado a la acción). Ubicá cada una según su indicación y la nota del usuario. Que no se superpongan entre sí ni con un recurso en modo "top" al mismo tiempo.
 - Seguí el estilo elegido y las indicaciones del usuario. Si piden algo imposible con estas herramientas, hacé lo más cercano y aclaralo en summary.`;
 
 function formatWords(words: Word[]): string {
@@ -65,6 +77,9 @@ export async function planEdit(input: PlanInput): Promise<EditPlan> {
     input.resources.length
       ? `RECURSOS:\n${input.resources.map((r) => `${r.index}. ${r.kind === "video" ? "Video" : "Imagen"} "${r.name}": ${r.note || "(sin nota)"}`).join("\n")}`
       : "RECURSOS: ninguno.",
+    input.templates.length
+      ? `PLANTILLAS:\n${input.templates.map((t) => `${t.index}. ${t.name}: "${t.text}". ${t.hint}${t.note ? ` Nota del usuario: ${t.note}` : ""}`).join("\n")}`
+      : "PLANTILLAS: ninguna.",
     input.instructions ? `INDICACIONES DEL USUARIO:\n${input.instructions}` : "",
     input.previous
       ? `EDICIÓN ANTERIOR (el usuario ya la vio):\n${JSON.stringify(input.previous.plan)}\n\nCAMBIOS QUE PIDE AHORA:\n${input.previous.changes}\n\nPartí de la edición anterior y aplicá solo esos cambios.`
