@@ -51,11 +51,11 @@ export function ReelDetail({
     };
   }, [id, router]);
 
-  async function iterate() {
+  async function iterate(mode: "fix" | "change") {
     setSending(true);
     setError("");
     try {
-      const { job: next } = await api<{ job: { id: string } }>("/api/jobs", { kind: "iterate", parentJobId: id, changes });
+      const { job: next } = await api<{ job: { id: string } }>("/api/jobs", { kind: "iterate", parentJobId: id, mode, changes });
       router.push(`/app/reel/${next.id}`);
       router.refresh();
     } catch (e) {
@@ -132,18 +132,26 @@ export function ReelDetail({
           {job.status === "done" && (
             <div className="card stack">
               <div>
-                <b>¿Querés cambiar algo?</b>
-                <div className="muted small">Contanos qué ajustar y lo volvemos a editar por {iterationCost} créditos ({iterationPrice}).</div>
+                <b>¿Algo no quedó bien?</b>
+                <div className="muted small">
+                  Si quedaron errores de corte (repeticiones, trabas, silencios o frases cortadas), lo rehacemos gratis. Si querés otro
+                  cambio (mover un texto, otro color, otro orden), sale {iterationCost} créditos ({iterationPrice}).
+                </div>
               </div>
               <textarea
-                placeholder="Ej: el principio está muy cortado, dejá la primera frase entera. Mostrá el logo al final."
+                placeholder="Contanos qué ver. Ej: en el segundo 12 repito la frase; dejá la primera frase entera; mostrá el logo al final."
                 value={changes}
                 onChange={(e) => setChanges(e.target.value)}
               />
               {error && <div className="alert">{error}</div>}
-              <button className="btn" disabled={changes.trim().length < 3 || sending} onClick={iterate}>
-                {sending ? "Enviando…" : `Pedir cambios · ${iterationPrice}`}
-              </button>
+              <div className="row" style={{ flexWrap: "wrap", gap: 8 }}>
+                <button className="btn btn-primary" disabled={sending} onClick={() => iterate("fix")}>
+                  {sending ? "Enviando…" : "Quedaron errores · Rehacer gratis"}
+                </button>
+                <button className="btn" disabled={changes.trim().length < 3 || sending} onClick={() => iterate("change")}>
+                  {`Pedir otro cambio · ${iterationPrice}`}
+                </button>
+              </div>
             </div>
           )}
         </div>

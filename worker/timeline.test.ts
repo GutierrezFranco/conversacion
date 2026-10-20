@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildCues, buildSegments, mapTime, mapWordRange, outputDuration, toAss, type Word } from "./timeline";
+import { formatWords } from "./plan";
 import { STYLES } from "../lib/styles";
 
 // "hola soy franco eh eh hoy te muestro algo" con una pausa larga en el medio.
@@ -89,4 +90,27 @@ test("modo karaoke: un evento por palabra con la palabra activa pintada", () => 
   assert.equal(events.length, 4);
   assert.ok(events[1].includes(`{\\c${style.captions.highlight}}TE`));
   assert.match(ass, /,3,6,0,2,80,80,/); // BorderStyle 3 = caja
+});
+
+test("los silencios del audio se sacan aunque queden dentro de un fragmento", () => {
+  const ws: Word[] = [
+    { i: 0, text: "uno", start: 0.0, end: 0.5 },
+    { i: 1, text: "dos", start: 2.0, end: 2.5 },
+  ];
+  const segs = buildSegments(ws, [{ fromWord: 0, toWord: 1, zoom: false }], 3, [{ start: 0.6, end: 1.9 }]);
+  assert.equal(segs.length, 2);
+  // Queda un poco de aire a cada lado del silencio y el corte es más corto que el original.
+  assert.ok(Math.abs(segs[0].end - 0.72) < 0.01);
+  assert.ok(Math.abs(segs[1].start - 1.78) < 0.01);
+  assert.ok(outputDuration(segs) < 2);
+  // Un silencio corto no se toca.
+  assert.equal(buildSegments(ws, [{ fromWord: 0, toWord: 1, zoom: false }], 3, [{ start: 0.6, end: 0.9 }]).length, 1);
+});
+
+test("la transcripción para Claude marca las pausas largas", () => {
+  const text = formatWords([
+    { i: 0, text: "hola", start: 0, end: 0.4 },
+    { i: 1, text: "che", start: 2.1, end: 2.4 },
+  ]);
+  assert.match(text, /— pausa 1\.7 s —/);
 });

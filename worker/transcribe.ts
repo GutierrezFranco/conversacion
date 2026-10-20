@@ -48,6 +48,9 @@ async function transcribeWhisper(input: string, onProgress?: (fraction: number) 
       "-m", process.env.WHISPER_MODEL ?? "/opt/whisper/ggml-small-q5_1.bin",
       "-f", wav,
       "-l", "es",
+      // Sin esto Whisper "limpia" lo que se dice y no escribe las trabas ni las repeticiones,
+      // que son justo lo que hay que cortar. Un ejemplo con muletillas lo empuja a transcribir textual.
+      "--prompt", "Eh, bueno, este... la, la mayoría de, eh, o sea, la mayoría de técnicos. Mmm, acá, acá mirá.",
       // -ml 1 + -sow: un segmento por palabra, con su tiempo de inicio y fin.
       "-ml", "1", "-sow",
       "-oj", "-of", out,

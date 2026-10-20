@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { handle, HttpError, requireUser, signPaths } from "@/lib/api";
-import { iterationJob, jobInput, ownsPath, resolveJob, type ResolvedJob } from "@/lib/jobs";
+import { FREE_FIXES_PER_EDIT, iterationJob, jobInput, ownsPath, resolveJob, type ResolvedJob } from "@/lib/jobs";
 import { REFERENCES_PER_DAY } from "@/lib/storage-rules";
 import type { EditStyle } from "@/lib/styles";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -49,7 +49,18 @@ export function POST(request: Request) {
         .maybeSingle();
       if (!parent || parent.user_id !== user.id || parent.kind !== "edit") throw new HttpError("No encontramos esa edición.", 404);
       if (parent.status !== "done") throw new HttpError("Esperá a que termine la edición antes de pedir cambios.", 409);
-      job = iterationJob(parent, input.changes);
+      job = iterationJob(parent, input.changes, input.mode);
+      if (input.mode === "fix") {
+        const { count } = await admin
+          .from("jobs")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .eq("cost", 0)
+          .eq("params->>rootJobId", job.params.rootJobId as string);
+        if ((count ?? 0) >= FREE_FIXES_PER_EDIT) {
+          throw new HttpError("Ya rehicimos gratis esta edición. Si querés otro ajuste, pedilo como cambio.", 409);
+        }
+      }
     } else {
       let customStyle: EditStyle | undefined;
       if (input.kind === "edit") {

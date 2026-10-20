@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import type { Segment } from "./timeline";
+import type { Segment, Silence } from "./timeline";
 
 // onOutput recibe cada pedazo de salida (stdout y stderr) a medida que llega, para leer el avance.
 export function run(cmd: string, args: string[], onOutput?: (chunk: string) => void): Promise<string> {
@@ -181,4 +181,29 @@ export function countCuts(input: string): Promise<number> {
     p.on("error", reject);
     p.on("close", (code) => (code === 0 ? resolve(cuts) : reject(new Error(`ffmpeg terminó con código ${code}`))));
   });
+}
+
+// Silencios del audio (por debajo de -35 dB durante al menos 0,35 s), en segundos del original.
+export async function detectSilences(input: string): Promise<Silence[]> {
+  const out: Silence[] = [];
+  const state = { pending: null as number | null, rest: "" };
+  const read = (line: string) => {
+    const m = line.match(/silence_(start|end): (-?[\d.]+)/);
+    if (!m) return;
+    const t = Math.max(0, Number(m[2]));
+    if (m[1] === "start") state.pending = t;
+    else if (state.pending !== null) {
+      out.push({ start: state.pending, end: t });
+      state.pending = null;
+    }
+  };
+  await run("ffmpeg", ["-hide_banner", "-nostats", "-i", input, "-vn", "-af", "silencedetect=noise=-35dB:d=0.35", "-f", "null", "-"], (chunk) => {
+    const lines = (state.rest + chunk).split("\n");
+    state.rest = lines.pop() ?? "";
+    lines.forEach(read);
+  });
+  read(state.rest);
+  // Un silencio que dura hasta el final del archivo no trae silence_end.
+  if (state.pending !== null) out.push({ start: state.pending, end: Number.MAX_SAFE_INTEGER });
+  return out;
 }

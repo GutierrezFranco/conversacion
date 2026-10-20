@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { FORMATS, getFormat } from "../lib/formats";
 import { getStyle, isPremium, type EditStyle } from "../lib/styles";
 import { getTemplate, type TemplateInstance } from "../lib/templates";
-import { fontsDir, probe, render, type RenderOverlay } from "./media";
+import { detectSilences, fontsDir, probe, render, type RenderOverlay } from "./media";
 import { transcribe } from "./transcribe";
 import { planEdit, type EditPlan, type PlanResource, type PlanTemplate } from "./plan";
 import { renderWithHyperframes } from "./hyperframes";
@@ -24,6 +24,7 @@ type EditParams = {
   templates?: TemplateInstance[];
   instructions: string;
   changes?: string;
+  mode?: "fix" | "change";
   music?: { path: string; name: string; volume: "baja" | "media" | "alta" };
 };
 
@@ -73,10 +74,14 @@ export async function runEdit(job: Job, parent: Job | null): Promise<EditResult>
       resources,
       templates,
       instructions: params.instructions,
-      previous: parentResult?.plan && params.changes ? { plan: parentResult.plan, changes: params.changes } : undefined,
+      previous:
+        parentResult?.plan && (params.changes || params.mode === "fix")
+          ? { plan: parentResult.plan, changes: params.changes ?? "", mode: params.mode ?? "change" }
+          : undefined,
     });
 
-    const segments = buildSegments(words, plan.keep, info.duration);
+    const silences = await detectSilences(rawFile).catch(() => []);
+    const segments = buildSegments(words, plan.keep, info.duration, silences);
     if (segments.length === 0) throw new Error("El plan de edición dejó el video vacío.");
 
     const overlays: RenderOverlay[] = [];
