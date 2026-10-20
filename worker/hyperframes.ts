@@ -1,6 +1,11 @@
-// Prototipo: dibuja subtítulos y plantillas con HyperFrames (HTML + GSAP renderizado con Chrome)
+// Motor premium: dibuja subtítulos y plantillas con HyperFrames (HTML + GSAP renderizado con Chrome)
 // en vez de ASS. ffmpeg sigue haciendo los cortes; HyperFrames solo pone la capa gráfica encima.
-// Mismos datos de entrada que toAss(), así se pueden comparar los dos motores con el mismo video.
+// Recibe los mismos datos que toAss(), así los dos motores se pueden comparar con el mismo video.
+
+import { copyFile, mkdir, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
+import { basename, join } from "node:path";
+import { run } from "./media";
 
 import { FONTS, getFont } from "../lib/fonts";
 import { assToHex, type EditStyle } from "../lib/styles";
@@ -110,7 +115,7 @@ video.clip { width: 1080px; height: 1920px; object-fit: cover; }
 .cue { inset: auto 70px ${bottom}px 70px; text-align: center; transform-origin: 50% 100%;
   font-family: "${font?.css.family ?? "Poppins"}", sans-serif; font-weight: ${font?.css.weight ?? 700}; font-style: ${font?.css.italic ? "italic" : "normal"};
   font-size: ${Math.round(c.size * 1.08)}px; line-height: 1.12; color: ${color}; ${stroke} ${box}
-  text-shadow: 0 6px 18px rgba(0,0,0,.35); }
+  text-shadow: ${c.glow ? `0 0 18px ${c.glow}, 0 0 42px ${c.glow}` : "0 6px 18px rgba(0,0,0,.35)"}; }
 .w { display: inline-block; margin: 0 0.06em; }
 .hl { color: ${highlight}; }
 .tpl { opacity: 0; inset: auto 0 auto 0; margin: 0 auto; width: fit-content; font-family: "Poppins", sans-serif; text-align: center; box-shadow: 0 18px 50px rgba(0,0,0,.35); }
@@ -148,4 +153,35 @@ tl.seek(0);
 </body>
 </html>
 `;
+}
+
+// Arma el proyecto de HyperFrames en una carpeta y renderiza el MP4 final.
+// `video` es el video ya cortado por ffmpeg (con recursos y música, sin subtítulos).
+export async function renderWithHyperframes(opts: {
+  dir: string;
+  video: string;
+  output: string;
+  duration: number;
+  cues: Cue[];
+  style: EditStyle;
+  templates: PlacedTemplateHtml[];
+  fontsDir?: string; // donde están instaladas las .ttf (FONTS_DIR)
+}) {
+  const project = join(opts.dir, "hf");
+  await mkdir(join(project, "fonts"), { recursive: true });
+  const require = createRequire(import.meta.url);
+  await copyFile(require.resolve("gsap/dist/gsap.min.js"), join(project, "gsap.min.js"));
+  await copyFile(opts.video, join(project, "base.mp4"));
+  if (opts.fontsDir) {
+    for (const f of FONTS) {
+      const file = basename(f.file);
+      await copyFile(join(opts.fontsDir, file), join(project, "fonts", file)).catch(() => null);
+    }
+  }
+  await writeFile(
+    join(project, "index.html"),
+    buildComposition({ videoSrc: "base.mp4", duration: opts.duration, cues: opts.cues, style: opts.style, templates: opts.templates, gsapSrc: "gsap.min.js", fontsDir: "fonts" }),
+  );
+  const bin = join(process.cwd(), "node_modules", ".bin", "hyperframes");
+  await run(bin, ["render", project, "-o", opts.output, "--quality", "standard", "--fps", "30", "--quiet"]);
 }

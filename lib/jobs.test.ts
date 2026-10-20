@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { jobInput, ownsPath, resolveJob } from "./jobs";
 import { STYLES } from "./styles";
-import { CREDIT_PRICE_ARS, EDIT_CREDITS, ITERATION_CREDITS, PACKS, creditsFor, pricePerVideo } from "./pricing";
+import { CREDIT_PRICE_ARS, EDIT_CREDITS, ITERATION_CREDITS, PACKS, PREMIUM_EDIT_CREDITS, creditsFor, pricePerVideo } from "./pricing";
 
 test("el precio de una edición sale del servidor", () => {
   const input = jobInput.parse({ kind: "edit", rawPath: "u1/raw/crudo.mp4", styleId: "tech" });
@@ -79,4 +79,12 @@ test("la música de fondo es opcional y viaja en el trabajo", () => {
   const sin = jobInput.parse({ kind: "edit", rawPath: "u1/raw/a.mp4", styleId: "tech" });
   if (sin.kind !== "edit") throw new Error("tipo inesperado");
   assert.equal(resolveJob(sin).params.music, undefined);
+});
+
+test("los estilos premium cobran más", () => {
+  const input = jobInput.parse({ kind: "edit", rawPath: "u1/raw/a.mp4", styleId: "premium-karaoke" });
+  if (input.kind !== "edit") throw new Error("tipo inesperado");
+  assert.equal(resolveJob(input).cost, PREMIUM_EDIT_CREDITS);
+  const custom = { ...STYLES[0], id: "custom:x", engine: "hyperframes" as const };
+  assert.equal(resolveJob({ ...input, styleId: "custom:x" }, custom).cost, PREMIUM_EDIT_CREDITS);
 });

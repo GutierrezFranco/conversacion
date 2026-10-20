@@ -2,11 +2,12 @@ import { z } from "zod";
 import { AI_GENERATORS } from "./features";
 import { getFormat } from "./formats";
 import { COPY_IDS } from "./reference";
-import { getStyle, type EditStyle } from "./styles";
+import { getStyle, isPremium, type EditStyle } from "./styles";
 import { normalizeInstance } from "./templates";
 import {
   EDIT_CREDITS,
   ITERATION_CREDITS,
+  PREMIUM_EDIT_CREDITS,
   IMAGE_MODELS,
   VIDEO_MODELS,
   imageCredits,
@@ -114,7 +115,7 @@ export function resolveJob(input: Exclude<JobInput, { kind: "iterate" }>, custom
           ...(input.music ? { music: input.music } : {}),
           instructions: input.instructions,
         },
-        cost: EDIT_CREDITS,
+        cost: isPremium(style) ? PREMIUM_EDIT_CREDITS : EDIT_CREDITS,
       };
     }
     case "image": {

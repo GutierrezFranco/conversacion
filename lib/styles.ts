@@ -8,6 +8,8 @@ export type EditStyle = {
   description: string;
   // Indicaciones para Claude sobre ritmo y tono de la edición.
   direction: string;
+  // ffmpeg: rápido y barato (por defecto) · hyperframes: animaciones premium dibujadas con Chrome
+  engine?: "ffmpeg" | "hyperframes";
   captions: {
     font: string;
     size: number;
@@ -23,6 +25,7 @@ export type EditStyle = {
     shadow?: number;
     // pop: cada línea aparece con un rebote · karaoke: se pinta la palabra que se está diciendo
     animation?: "pop" | "none" | "karaoke";
+    glow?: string; // #RRGGBB, brillo alrededor del texto (solo motor premium)
   };
 };
 
@@ -154,7 +157,76 @@ export const STYLES: EditStyle[] = [
       marginV: 300,
     },
   },
+  // ---------- Premium (motor HyperFrames) ----------
+  {
+    id: "premium-karaoke",
+    name: "Karaoke Pro",
+    tagline: "Premium",
+    description: "Cada palabra se ilumina y crece cuando la decís. Las cajitas entran con rebote.",
+    direction:
+      "Ritmo rápido. Sacá pausas y muletillas. Destacá números, precios y nombres de equipos. Usá zooms en las frases fuertes.",
+    engine: "hyperframes",
+    captions: {
+      font: "Poppins ExtraBold",
+      size: 92,
+      primary: "&H00FFFFFF",
+      highlight: "&H0000E1FF",
+      outline: "&H00000000",
+      outlineWidth: 6,
+      uppercase: true,
+      wordsPerLine: 3,
+      marginV: 560,
+      animation: "karaoke",
+    },
+  },
+  {
+    id: "premium-caja",
+    name: "Caja Pop",
+    tagline: "Premium",
+    description: "Subtítulos sobre una caja de color que salta en cada frase. Muy legible y con mucha onda.",
+    direction: "Ritmo medio-rápido. Frases cortas. Destacá la palabra clave de cada frase.",
+    engine: "hyperframes",
+    captions: {
+      font: "Kanit ExtraBold",
+      italic: true,
+      size: 80,
+      primary: "&H00FFFFFF",
+      highlight: "&H0018110F",
+      outline: "&H001A6AFF",
+      outlineWidth: 14,
+      uppercase: true,
+      wordsPerLine: 3,
+      marginV: 600,
+      box: true,
+      animation: "pop",
+    },
+  },
+  {
+    id: "premium-neon",
+    name: "Neón",
+    tagline: "Premium",
+    description: "Letras altas con brillo de neón y palabras que se encienden. Ideal para tips y trucos.",
+    direction: "Ritmo rápido, estilo tutorial. Destacá la herramienta o el truco.",
+    engine: "hyperframes",
+    captions: {
+      font: "Bebas Neue",
+      size: 120,
+      primary: "&H00FFFFFF",
+      highlight: "&H00FFF000",
+      outline: "&H00000000",
+      outlineWidth: 0,
+      uppercase: true,
+      wordsPerLine: 3,
+      marginV: 620,
+      animation: "karaoke",
+      glow: "#00F0FF",
+    },
+  },
 ];
+
+export function isPremium(style: EditStyle): boolean {
+  return style.engine === "hyperframes";
+}
 
 export function getStyle(id: string): EditStyle | undefined {
   return STYLES.find((s) => s.id === id);

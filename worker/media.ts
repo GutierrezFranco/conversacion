@@ -42,7 +42,7 @@ export function buildRenderArgs(opts: {
   output: string;
   segments: Segment[];
   overlays: RenderOverlay[];
-  assFile: string;
+  assFile?: string; // sin subtítulos cuando los dibuja HyperFrames
   fontsDir?: string;
   // Música de fondo: se repite si es corta, baja sola cuando hablás y se apaga al final.
   music?: { file: string; volume: number; duration: number };
@@ -79,9 +79,13 @@ export function buildRenderArgs(opts: {
     last = `ov${k}`;
   });
 
-  const assPath = opts.assFile.replace(/\\/g, "/").replace(/:/g, "\\:").replace(/'/g, "\\'");
-  const fonts = opts.fontsDir ? `:fontsdir='${opts.fontsDir}'` : "";
-  f.push(`[${last}]ass='${assPath}'${fonts},format=yuv420p[vout]`);
+  if (opts.assFile) {
+    const assPath = opts.assFile.replace(/\\/g, "/").replace(/:/g, "\\:").replace(/'/g, "\\'");
+    const fonts = opts.fontsDir ? `:fontsdir='${opts.fontsDir}'` : "";
+    f.push(`[${last}]ass='${assPath}'${fonts},format=yuv420p[vout]`);
+  } else {
+    f.push(`[${last}]format=yuv420p[vout]`);
+  }
 
   let audioOut = "aout";
   if (opts.music) {

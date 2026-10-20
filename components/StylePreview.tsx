@@ -24,6 +24,7 @@ export function StylePreview({ style, text = "Así se ven tus subtítulos" }: { 
           borderRadius: 6,
           WebkitTextStroke: stroke ? `${stroke}px ${outline}` : undefined,
           paintOrder: "stroke fill",
+          textShadow: c.glow ? `0 0 8px ${c.glow}, 0 0 18px ${c.glow}` : undefined,
         }}
       >
         {words.map((w, i) => (

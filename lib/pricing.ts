@@ -7,6 +7,8 @@
 export const CREDIT_PRICE_ARS = 500;
 export const EDIT_CREDITS = 10;
 export const ITERATION_CREDITS = 5;
+// Estilos premium (animaciones con HyperFrames) y estilos copiados de una referencia: $7.000.
+export const PREMIUM_EDIT_CREDITS = 14;
 export const SIGNUP_BONUS_CREDITS = 10; // una edición gratis para probar
 
 // Costo real estimado (Claude + transcripción + render). Con el dólar a $1.450 una edición te

@@ -4,10 +4,11 @@ import { join } from "node:path";
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import { env } from "../lib/env";
 import { FORMATS, getFormat } from "../lib/formats";
-import { getStyle, type EditStyle } from "../lib/styles";
+import { getStyle, isPremium, type EditStyle } from "../lib/styles";
 import { getTemplate, type TemplateInstance } from "../lib/templates";
 import { extractAudio, fontsDir, probe, render, type RenderOverlay } from "./media";
 import { planEdit, type EditPlan, type PlanResource, type PlanTemplate } from "./plan";
+import { renderWithHyperframes } from "./hyperframes";
 import { placeTemplates, templateEvents } from "./templates";
 import { assTime, buildCues, buildSegments, mapWordRange, outputDuration, toAss, type Word } from "./timeline";
 import { download, uploadOutput, type Job, type JobResult } from "./storage";
@@ -126,9 +127,12 @@ export async function runEdit(job: Job, parent: Job | null): Promise<EditResult>
     );
     const templateLines = placed.flatMap((p) => templateEvents(p.instance, { start: assTime(p.start), end: assTime(p.end) }));
 
-    const assFile = join(dir, "subs.ass");
     const cues = buildCues(words, segments, new Set(plan.highlights), style.captions.wordsPerLine);
-    await writeFile(assFile, toAss(cues, style, templateLines));
+    const premium = isPremium(style);
+    // Motor por defecto: ffmpeg dibuja todo en una pasada (subtítulos ASS).
+    // Premium: ffmpeg corta sin subtítulos y HyperFrames dibuja subtítulos y plantillas animados.
+    const assFile = premium ? undefined : join(dir, "subs.ass");
+    if (assFile) await writeFile(assFile, toAss(cues, style, templateLines));
 
     let music: { file: string; volume: number; duration: number } | undefined;
     if (params.music) {
@@ -142,7 +146,13 @@ export async function runEdit(job: Job, parent: Job | null): Promise<EditResult>
     }
 
     const outFile = join(dir, "out.mp4");
-    await render({ input: rawFile, output: outFile, segments, overlays, assFile, fontsDir: fontsDir(), music });
+    if (premium) {
+      const cutFile = join(dir, "cut.mp4");
+      await render({ input: rawFile, output: cutFile, segments, overlays, music });
+      await renderWithHyperframes({ dir, video: cutFile, output: outFile, duration, cues, style, templates: placed, fontsDir: fontsDir() });
+    } else {
+      await render({ input: rawFile, output: outFile, segments, overlays, assFile, fontsDir: fontsDir(), music });
+    }
 
     const path = await uploadOutput(job, outFile, "mp4", "video/mp4");
     return {

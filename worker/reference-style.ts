@@ -81,6 +81,8 @@ export function composeStyle(base: EditStyle, a: ReferenceAnalysis, id: string):
     tagline: "Tu referencia",
     description: a.analysis.slice(0, 300),
     direction,
+    // Los estilos copiados se dibujan con el motor premium, que reproduce mejor la referencia.
+    engine: "hyperframes",
     captions,
   };
 }

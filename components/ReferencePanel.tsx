@@ -50,7 +50,8 @@ export function ReferencePanel({ baseStyleId, onReady, onCancel }: Props) {
         <b>Copiar el estilo de una referencia</b>
         <div className="muted small">
           Subí un reel que te guste (o una captura) y le copiamos los subtítulos, la fuente, los colores o el ritmo. Queda guardado en
-          «Mis estilos» para tus próximos videos.
+          «Mis estilos» para tus próximos videos. Los estilos copiados se editan con el motor premium, que reproduce mejor
+          las animaciones.
         </div>
       </div>
 

@@ -8,14 +8,16 @@ import { StylePreview } from "@/components/StylePreview";
 import { FORMATS } from "@/lib/formats";
 import { api, uploadFile, type Asset } from "@/lib/client";
 import { RAW_MAX_BYTES } from "@/lib/storage-rules";
-import { STYLES, type EditStyle } from "@/lib/styles";
+import { STYLES, isPremium, type EditStyle } from "@/lib/styles";
 import { TEMPLATES, getTemplate, type TemplateInstance } from "@/lib/templates";
 
 type Resource = { asset: Asset; note: string };
 type TemplateDraft = TemplateInstance & { key: number };
 type CustomStyle = { id: string; name: string; style: EditStyle; analysis: string | null; copied: string[] };
 
-export function ReelEditor({ cost, priceLabel }: { cost: number; priceLabel: string }) {
+type Price = { credits: number; label: string };
+
+export function ReelEditor({ price, premiumPrice }: { price: Price; premiumPrice: Price }) {
   const router = useRouter();
   const rawInput = useRef<HTMLInputElement>(null);
   const nextKey = useRef(1);
@@ -105,6 +107,8 @@ export function ReelEditor({ cost, priceLabel }: { cost: number; priceLabel: str
     getTemplate(t.templateId)?.fields.some((f) => !f.optional && !(t.values[f.key] ?? "").trim()),
   );
   const uploading = raw && !rawPath;
+  const selectedStyle = customStyles.find((c) => c.style.id === styleId)?.style ?? STYLES.find((s) => s.id === styleId);
+  const cost = selectedStyle && isPremium(selectedStyle) ? premiumPrice : price;
 
   async function submit() {
     if (!rawPath) return;
@@ -196,7 +200,7 @@ export function ReelEditor({ cost, priceLabel }: { cost: number; priceLabel: str
             <div key={c.id} className={`card selectable ${styleId === c.style.id ? "selected" : ""}`} onClick={() => setStyleId(c.style.id)} role="button">
               <div className="row">
                 <b>{c.name}</b>
-                <span className="pill pill-accent">Mi estilo</span>
+                <span className="pill pill-accent">Mi estilo · {premiumPrice.label}</span>
                 <div className="spacer" />
                 <button
                   className="btn btn-ghost small"
@@ -219,7 +223,10 @@ export function ReelEditor({ cost, priceLabel }: { cost: number; priceLabel: str
           ))}
           {STYLES.map((s) => (
             <button key={s.id} className={`card selectable ${styleId === s.id ? "selected" : ""}`} onClick={() => setStyleId(s.id)}>
-              <b>{s.name}</b> <span className="pill" style={{ marginLeft: 6 }}>{s.tagline}</span>
+              <b>{s.name}</b>{" "}
+              <span className={`pill ${isPremium(s) ? "pill-accent" : ""}`} style={{ marginLeft: 6 }}>
+                {isPremium(s) ? `★ Premium · ${premiumPrice.label}` : s.tagline}
+              </span>
               <p className="muted small" style={{ margin: "8px 0 0" }}>
                 {s.description}
               </p>
@@ -407,7 +414,8 @@ export function ReelEditor({ cost, priceLabel }: { cost: number; priceLabel: str
 
       <div className="row">
         <span className="muted">
-          Cuesta <b style={{ color: "var(--text)" }}>{cost} créditos ({priceLabel})</b>. Si algo falla, te los devolvemos.
+          Cuesta <b style={{ color: "var(--text)" }}>{cost.credits} créditos ({cost.label})</b>
+          {cost === premiumPrice ? " porque el estilo es premium" : ""}. Si algo falla, te los devolvemos.
         </span>
         <div className="spacer" />
         <button className="btn btn-primary" disabled={!rawPath || !!uploading || sending || !!missingTemplate} onClick={submit}>

@@ -2,9 +2,14 @@
 # Deploy sugerido: Railway, Fly.io o Render (como "background worker", sin puerto público).
 FROM node:22-slim
 
+# chromium: lo usa HyperFrames (motor premium) para dibujar subtítulos y plantillas animados.
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ffmpeg fontconfig ca-certificates curl \
+  && apt-get install -y --no-install-recommends ffmpeg fontconfig ca-certificates curl chromium \
   && rm -rf /var/lib/apt/lists/*
+
+ENV HYPERFRAMES_BROWSER_PATH=/usr/bin/chromium \
+    HYPERFRAMES_NO_TELEMETRY=1 \
+    PUPPETEER_SKIP_DOWNLOAD=1
 
 # Tipografías que usan los estilos y las referencias. Tiene que coincidir con lib/fonts.ts.
 ENV FONTS_DIR=/usr/share/fonts/edicion
