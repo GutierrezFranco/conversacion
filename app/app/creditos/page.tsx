@@ -1,4 +1,5 @@
 import { BuyButton } from "@/components/BuyButton";
+import { PromoForm } from "@/components/PromoForm";
 import { getBalance } from "@/lib/api";
 import { CREDIT_PRICE_ARS, EDIT_CREDITS, ITERATION_CREDITS, PACKS, formatArs, pricePerVideo } from "@/lib/pricing";
 import { createClient, getUser } from "@/lib/supabase/server";
@@ -9,6 +10,7 @@ const REASON_LABEL: Record<string, string> = {
   job_charge: "Uso",
   job_refund: "Devolución",
   admin: "Ajuste",
+  promo: "Código de regalo",
 };
 
 const STATUS_MESSAGE: Record<string, { text: string; ok: boolean }> = {
@@ -59,6 +61,8 @@ export default async function CreditsPage({ searchParams }: { searchParams: Prom
         ))}
       </div>
       <p className="muted small">Pagás con Mercado Pago: tarjeta, débito, dinero en cuenta o efectivo. Los créditos no vencen.</p>
+
+      <PromoForm />
 
       {movements && movements.length > 0 && (
         <div className="card">

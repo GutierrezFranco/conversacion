@@ -9,7 +9,8 @@
     "start": "next start",
     "worker": "tsx worker/index.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test lib/*.test.ts worker/*.test.ts"
+    "test": "tsx --test lib/*.test.ts worker/*.test.ts",
+    "test:db": "node supabase/test-migrations.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",
@@ -25,6 +26,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.10",
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
