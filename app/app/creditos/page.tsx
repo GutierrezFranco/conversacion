@@ -60,7 +60,13 @@ export default async function CreditsPage({ searchParams }: { searchParams: Prom
           </div>
         ))}
       </div>
-      <p className="muted small">Pagás con Mercado Pago: tarjeta, débito, dinero en cuenta o efectivo. Los créditos no vencen.</p>
+      <div className="secure-pay">
+        <span>🔒</span>
+        <div>
+          <b>Pago seguro con Mercado Pago</b>
+          <div className="muted small">Tarjeta de crédito, débito, dinero en cuenta o efectivo. Los créditos se acreditan apenas se aprueba el pago y no vencen.</div>
+        </div>
+      </div>
 
       <PromoForm />
 

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Brand } from "@/components/Brand";
+import { SiteFooter } from "@/components/SiteFooter";
 import { FORMATS } from "@/lib/formats";
 import { CREDIT_PRICE_ARS, EDIT_CREDITS, ITERATION_CREDITS, PACKS, PREMIUM_EDIT_CREDITS, formatArs, pricePerVideo } from "@/lib/pricing";
 import { STYLES, isPremium } from "@/lib/styles";
@@ -373,13 +374,7 @@ export default function Landing() {
         </section>
       </main>
 
-      <footer className="footer">
-        <div className="container row">
-          <Brand />
-          <div className="spacer" />
-          <span className="muted small">© {new Date().getFullYear()} Edición Simple</span>
-        </div>
-      </footer>
+      <SiteFooter />
     </>
   );
 }
