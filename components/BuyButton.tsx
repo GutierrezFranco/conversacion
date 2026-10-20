@@ -22,7 +22,7 @@ export function BuyButton({ packId, primary }: { packId: string; primary?: boole
   return (
     <>
       <button className={`btn ${primary ? "btn-primary" : ""}`} style={{ width: "100%" }} onClick={buy} disabled={loading}>
-        {loading ? "Abriendo Mercado Pago…" : "Comprar con Mercado Pago"}
+        {loading ? "Abriendo el pago seguro…" : "Comprar"}
       </button>
       {error && <div className="alert small">{error}</div>}
     </>

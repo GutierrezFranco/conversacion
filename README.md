@@ -39,10 +39,11 @@ Navegador ──► Next.js (Vercel/Netlify) ──► Supabase (login, base de 
 ### 1. Supabase
 
 1. Creá un proyecto en [supabase.com](https://supabase.com).
-2. En **SQL Editor**, pegá y ejecutá, en orden, los archivos de `supabase/migrations/` (del `0001` al `0005`). Podés probarlos antes en tu máquina con `npm run test:db`.
+2. En **SQL Editor**, pegá y ejecutá, en orden, los archivos de `supabase/migrations/` (del `0001` al `0007`). Podés probarlos antes en tu máquina con `npm run test:db`.
 3. En **Authentication → URL Configuration**, poné tu dominio en *Site URL* y agregá `https://tu-dominio/auth/callback` a *Redirect URLs* (y `http://localhost:3000/auth/callback` para probar en local).
 4. En **Storage → Settings**, subí el límite de tamaño por archivo a 1 GB (los crudos pesan cientos de MB). En el plan gratis el máximo es bajo: para la prueba con alumnos conviene el plan Pro.
 5. Opcional: activá Google en **Authentication → Providers**.
+6. En **Authentication → Email Templates**, pegá `supabase/email-templates/magic-link.html` en *Magic Link* y en *Confirm signup*, con el asunto «Tu link para entrar a Edición Simple».
 
 ### 2. Mercado Pago
 
@@ -107,13 +108,16 @@ Para arrancar sin pagar nada por mes (solo Claude por cada video, que sale del p
 1. Publicá web y worker (pasos de arriba) con las credenciales **de prueba** de Mercado Pago.
 2. Creá tu cuenta en la app y editá 10 o 15 crudos tuyos de distintos tipos (hablando a cámara, cajita de preguntas, paso a paso, con fotos). Anotá qué cortes o carteles no te convencen: se ajustan en `worker/plan.ts` (indicaciones a Claude), `lib/styles.ts` y `lib/templates.ts`.
 3. Probá una compra con un usuario de prueba de Mercado Pago y fijate que los créditos se acrediten solos.
-4. Creá un código de regalo para los alumnos de la prueba desde el SQL Editor:
-   ```sql
-   insert into public.promo_codes (code, credits, max_uses) values ('MDM-PRUEBA', 30, 20);
-   ```
-   (30 créditos = 3 videos normales o 2 premium, para 20 personas). Lo canjean en **Créditos → ¿Tenés un código de regalo?**.
+4. Poné tu mail en `ADMIN_EMAILS` y entrá a **/app/admin** (o desde el menú de tu cuenta → Administración): ahí creás códigos de regalo con un clic, ves usuarios, ediciones, fallas, ventas del mes y pedidos del botón de arrepentimiento. Los alumnos canjean el código en **Créditos → ¿Tenés un código de regalo?**.
 5. Mirá cómo va en Supabase: la tabla `jobs` muestra cada edición (estado, error, costo) y `credit_ledger` cada movimiento de créditos.
 6. Con lo que digan, ajustá precios y estilos, pasá Mercado Pago a producción y lanzá.
+
+## Imagen de marca
+
+- Logo e ícono: `app/icon.svg` y `components/Logo.tsx`. Íconos para instalar en el celular en `public/` y `app/apple-icon.png`; imagen para compartir el link en `app/opengraph-image.png`.
+- La app se puede instalar en el celular («Agregar a pantalla de inicio») gracias a `app/manifest.ts`.
+- Los datos públicos del negocio (mail, WhatsApp, razón social) salen de variables de entorno (`lib/site.ts`), así no queda nada personal en el código.
+- En Mercado Pago, revisá que el nombre que ve el comprador sea el del negocio (o usá una cuenta aparte para la app).
 
 ## Antes de cobrar de verdad
 
@@ -121,7 +125,7 @@ Para arrancar sin pagar nada por mes (solo Claude por cada video, que sale del p
 - Si prendés los generadores con IA, actualizá `ARS_PER_USD` cuando cambie el dólar.
 - Pasá de las credenciales de prueba de Mercado Pago a las de producción.
 - Emití factura por cada venta (ARCA). Consultalo con tu contador.
-- Publicá términos y condiciones, y una política de privacidad: guardás videos de otras personas.
+- Los términos, la política de privacidad y el botón de arrepentimiento ya están (`/terminos`, `/privacidad`, `/arrepentimiento`): hacelos revisar por un abogado o tu contador antes de vender.
 
 ## Próximos pasos posibles
 

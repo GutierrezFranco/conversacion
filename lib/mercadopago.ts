@@ -28,6 +28,9 @@ export async function createPreference(input: PreferenceInput): Promise<{ id: st
         {
           id: input.purchaseId,
           title: input.title,
+          description: "Créditos para editar reels en Edición Simple",
+          picture_url: `${input.appUrl}/icon-512.png`,
+          category_id: "services",
           quantity: 1,
           currency_id: "ARS",
           unit_price: input.amountArs,

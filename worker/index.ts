@@ -108,6 +108,8 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
   });
 }
 
-console.log(`Worker de Edición Simple arrancó con ${CONCURRENCY} trabajos en paralelo.`);
+// Railway completa RAILWAY_GIT_COMMIT_SHA: así se ve en los logs qué versión está corriendo.
+const VERSION = process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 7) ?? "local";
+console.log(`Worker de Edición Simple (versión ${VERSION}) arrancó con ${CONCURRENCY} trabajos en paralelo.`);
 await Promise.all(Array.from({ length: CONCURRENCY }, (_, i) => loop(i)));
 process.exit(0);
