@@ -39,11 +39,18 @@ export const editInput = z.object({
   music: z.object({ path: z.string().min(1), name: z.string().max(200), volume: z.enum(["baja", "media", "alta"]).default("baja") }).optional(),
 });
 
-export const iterateInput = z.object({
-  kind: z.literal("iterate"),
-  parentJobId: z.string().uuid(),
-  changes: z.string().min(3).max(2000),
-});
+// fix: la edición quedó con errores de corte (gratis, con límite). change: cambios de gusto (se cobran).
+export const iterateInput = z
+  .object({
+    kind: z.literal("iterate"),
+    parentJobId: z.string().uuid(),
+    mode: z.enum(["fix", "change"]).default("change"),
+    changes: z.string().max(2000).default(""),
+  })
+  .refine((v) => v.mode === "fix" || v.changes.trim().length >= 3, { message: "Contanos qué querés cambiar." });
+
+// Cuántas veces se puede rehacer gratis una misma edición por errores de corte.
+export const FREE_FIXES_PER_EDIT = 2;
 
 export const imageInput = z.object({
   kind: z.literal("image"),
@@ -142,12 +149,19 @@ export function resolveJob(input: Exclude<JobInput, { kind: "iterate" }>, custom
   }
 }
 
-export function iterationJob(parent: { id: string; title: string | null; params: Record<string, unknown> }, changes: string): ResolvedJob {
+export function iterationJob(
+  parent: { id: string; title: string | null; params: Record<string, unknown> },
+  changes: string,
+  mode: "fix" | "change" = "change",
+): ResolvedJob {
+  // rootJobId: la edición original de la cadena, para contar cuántos arreglos gratis lleva.
+  const rootJobId = typeof parent.params.rootJobId === "string" ? parent.params.rootJobId : parent.id;
+  const baseTitle = (parent.title ?? "Reel").replace(/ \((cambios|corregido)\)$/, "");
   return {
     kind: "edit",
-    title: `${parent.title ?? "Reel"} (cambios)`,
-    params: { ...parent.params, changes },
-    cost: ITERATION_CREDITS,
+    title: `${baseTitle} (${mode === "fix" ? "corregido" : "cambios"})`,
+    params: { ...parent.params, changes, mode, rootJobId },
+    cost: mode === "fix" ? 0 : ITERATION_CREDITS,
     parentJobId: parent.id,
   };
 }

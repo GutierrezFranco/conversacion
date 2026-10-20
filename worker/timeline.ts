@@ -12,8 +12,33 @@ const PAD_BEFORE = 0.08;
 const PAD_AFTER = 0.15;
 const MIN_SEGMENT = 0.25;
 
+export type Silence = { start: number; end: number };
+
+// Silencios que se sacan aunque queden dentro de un fragmento elegido: los detecta ffmpeg en el audio,
+// así no dependemos de que la transcripción marque bien cada pausa. Se deja un poco de aire a cada lado.
+const SILENCE_MIN = 0.45;
+const SILENCE_KEEP = 0.12;
+
+function removeSilences(segs: Omit<Segment, "outStart">[], silences: Silence[]): Omit<Segment, "outStart">[] {
+  const cuts = silences
+    .filter((x) => x.end - x.start >= SILENCE_MIN)
+    .map((x) => ({ start: x.start + SILENCE_KEEP, end: x.end - SILENCE_KEEP }))
+    .sort((a, b) => a.start - b.start);
+  const out: Omit<Segment, "outStart">[] = [];
+  for (const seg of segs) {
+    let cursor = seg.start;
+    for (const c of cuts) {
+      if (c.end <= cursor || c.start >= seg.end) continue;
+      if (c.start > cursor) out.push({ ...seg, start: cursor, end: c.start });
+      cursor = Math.max(cursor, c.end);
+    }
+    if (cursor < seg.end) out.push({ ...seg, start: cursor, end: seg.end });
+  }
+  return out;
+}
+
 // Convierte los rangos de palabras que eligió Claude en cortes del video original.
-export function buildSegments(words: Word[], keep: KeepRange[], sourceDuration: number): Segment[] {
+export function buildSegments(words: Word[], keep: KeepRange[], sourceDuration: number, silences: Silence[] = []): Segment[] {
   const ranges = keep
     .map((k) => ({ ...k, fromWord: Math.max(0, k.fromWord), toWord: Math.min(words.length - 1, k.toWord) }))
     .filter((k) => k.fromWord <= k.toWord)
@@ -41,7 +66,7 @@ export function buildSegments(words: Word[], keep: KeepRange[], sourceDuration: 
   }
 
   let t = 0;
-  return raw
+  return removeSilences(raw, silences)
     .filter((s) => s.end - s.start >= MIN_SEGMENT)
     .map((s) => {
       const seg = { ...s, outStart: t };

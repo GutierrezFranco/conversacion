@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { jobInput, ownsPath, resolveJob } from "./jobs";
+import { iterationJob, jobInput, ownsPath, resolveJob } from "./jobs";
 import { STYLES } from "./styles";
 import { CREDIT_PRICE_ARS, EDIT_CREDITS, ITERATION_CREDITS, PACKS, PREMIUM_EDIT_CREDITS, creditsFor, pricePerVideo } from "./pricing";
 
@@ -87,4 +87,21 @@ test("los estilos premium cobran más", () => {
   assert.equal(resolveJob(input).cost, PREMIUM_EDIT_CREDITS);
   const custom = { ...STYLES[0], id: "custom:x", engine: "hyperframes" as const };
   assert.equal(resolveJob({ ...input, styleId: "custom:x" }, custom).cost, PREMIUM_EDIT_CREDITS);
+});
+
+test("rehacer por errores de corte es gratis y no pide texto; los cambios se cobran", () => {
+  const fix = jobInput.parse({ kind: "iterate", parentJobId: "11111111-1111-4111-8111-111111111111", mode: "fix" });
+  assert.equal(fix.kind === "iterate" && fix.mode, "fix");
+  assert.throws(() => jobInput.parse({ kind: "iterate", parentJobId: "11111111-1111-4111-8111-111111111111", changes: "" }));
+
+  const parent = { id: "root", title: "Reel", params: { rawPath: "u1/raw/a.mp4" } };
+  const free = iterationJob(parent, "", "fix");
+  assert.equal(free.cost, 0);
+  assert.equal(free.params.rootJobId, "root");
+  assert.equal(free.title, "Reel (corregido)");
+  // Un arreglo sobre otro arreglo sigue contando para la misma edición original.
+  const again = iterationJob({ id: "hijo", title: free.title, params: free.params }, "", "fix");
+  assert.equal(again.params.rootJobId, "root");
+  assert.equal(again.title, "Reel (corregido)");
+  assert.equal(iterationJob(parent, "cambiá el color", "change").cost, ITERATION_CREDITS);
 });
