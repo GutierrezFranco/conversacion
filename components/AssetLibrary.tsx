@@ -6,7 +6,14 @@ import { formatBytes } from "@/lib/storage-rules";
 
 type Props =
   | { mode: "manage" }
-  | { mode: "pick"; picked: string[]; onPick: (asset: Asset) => void; onUploaded?: (asset: Asset) => void };
+  | {
+      mode: "pick";
+      picked: string[];
+      onPick: (asset: Asset) => void;
+      onUploaded?: (asset: Asset) => void;
+      // Qué tipos de archivo se muestran y se pueden subir en este selector.
+      kinds?: Asset["kind"][];
+    };
 
 // Carpeta de recursos en la nube: ver, subir, borrar y (en el editor) elegir para un reel.
 export function AssetLibrary(props: Props) {
@@ -63,6 +70,9 @@ export function AssetLibrary(props: Props) {
   }
 
   const pct = Math.min(100, Math.round((used / quota) * 100));
+  const kinds = props.mode === "pick" ? props.kinds : undefined;
+  const visible = (assets ?? []).filter((a) => !kinds || kinds.includes(a.kind));
+  const accept = kinds?.length === 1 && kinds[0] === "audio" ? "audio/*" : kinds?.includes("audio") || !kinds ? "image/*,video/*,audio/*" : "image/*,video/*";
 
   return (
     <div className="stack">
@@ -75,7 +85,7 @@ export function AssetLibrary(props: Props) {
             <div style={{ width: `${pct}%` }} />
           </div>
         </div>
-        <input ref={input} type="file" accept="image/*,video/*" multiple hidden onChange={(e) => upload(e.target.files)} />
+        <input ref={input} type="file" accept={accept} multiple hidden onChange={(e) => upload(e.target.files)} />
         <button className="btn" onClick={() => input.current?.click()}>
           ↑ Subir {props.mode === "pick" ? "nuevo" : "recursos"}
         </button>
@@ -91,18 +101,24 @@ export function AssetLibrary(props: Props) {
 
       {assets === null ? (
         <div className="spinner" />
-      ) : assets.length === 0 && uploading.length === 0 ? (
+      ) : visible.length === 0 && uploading.length === 0 ? (
         <div className="muted small">
-          Todavía no tenés recursos. Subí tu logo, capturas o fotos de reparaciones y quedan guardados para todos tus reels.
+          {kinds?.length === 1 && kinds[0] === "audio"
+            ? "Todavía no subiste música. Subí un tema sin copyright (MP3, M4A o WAV) y queda guardado para todos tus reels."
+            : "Todavía no tenés recursos. Subí tu logo, capturas, fotos de reparaciones o música y quedan guardados para todos tus reels."}
         </div>
       ) : (
         <div className="asset-grid">
-          {assets.map((a) => {
+          {visible.map((a) => {
             const picked = props.mode === "pick" && props.picked.includes(a.id);
             const content = (
               <>
                 <div className="asset-thumb">
-                  {a.url && (a.kind === "video" ? <video src={a.url} muted playsInline preload="metadata" /> : <img src={a.url} alt={a.name} />)}
+                  {a.kind === "audio" ? (
+                    <div style={{ display: "grid", placeItems: "center", height: "100%", fontSize: 34 }}>♪</div>
+                  ) : (
+                    a.url && (a.kind === "video" ? <video src={a.url} muted playsInline preload="metadata" /> : <img src={a.url} alt={a.name} />)
+                  )}
                   {picked && <span className="asset-check">✓</span>}
                 </div>
                 <div className="small" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>

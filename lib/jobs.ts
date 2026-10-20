@@ -35,6 +35,7 @@ export const editInput = z.object({
     .max(8)
     .default([]),
   instructions: z.string().max(2000).default(""),
+  music: z.object({ path: z.string().min(1), name: z.string().max(200), volume: z.enum(["baja", "media", "alta"]).default("baja") }).optional(),
 });
 
 export const iterateInput = z.object({
@@ -110,6 +111,7 @@ export function resolveJob(input: Exclude<JobInput, { kind: "iterate" }>, custom
           ...(customStyle ? { style: customStyle } : {}),
           resources: input.resources,
           templates: input.templates.map(normalizeInstance),
+          ...(input.music ? { music: input.music } : {}),
           instructions: input.instructions,
         },
         cost: EDIT_CREDITS,

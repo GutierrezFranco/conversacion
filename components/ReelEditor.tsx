@@ -29,6 +29,9 @@ export function ReelEditor({ cost, priceLabel }: { cost: number; priceLabel: str
   const [showReference, setShowReference] = useState(false);
   const [resources, setResources] = useState<Resource[]>([]);
   const [showLibrary, setShowLibrary] = useState(false);
+  const [music, setMusic] = useState<Asset | null>(null);
+  const [musicVolume, setMusicVolume] = useState<"baja" | "media" | "alta">("baja");
+  const [showMusic, setShowMusic] = useState(false);
   const [templates, setTemplates] = useState<TemplateDraft[]>([]);
   const [instructions, setInstructions] = useState("");
   const [drag, setDrag] = useState(false);
@@ -117,6 +120,7 @@ export function ReelEditor({ cost, priceLabel }: { cost: number; priceLabel: str
         instructions,
         resources: resources.map((r) => ({ path: r.asset.path, name: r.asset.name, kind: r.asset.kind, note: r.note })),
         templates: templates.map(({ templateId, values, note }) => ({ templateId, values, note })),
+        ...(music ? { music: { path: music.path, name: music.name, volume: musicVolume } } : {}),
       });
       router.push(`/app/reel/${job.id}`);
       router.refresh();
@@ -260,6 +264,7 @@ export function ReelEditor({ cost, priceLabel }: { cost: number; priceLabel: str
         {showLibrary && (
           <AssetLibrary
             mode="pick"
+            kinds={["image", "video"]}
             picked={resources.map((r) => r.asset.id)}
             onPick={toggleAsset}
             onUploaded={(a) => setResources((prev) => (prev.length >= 10 ? prev : [...prev, { asset: a, note: "" }]))}
@@ -291,6 +296,48 @@ export function ReelEditor({ cost, priceLabel }: { cost: number; priceLabel: str
             </button>
           </div>
         ))}
+      </div>
+
+      <div className="card stack">
+        <div className="row">
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <b>Música de fondo (opcional)</b>
+            <div className="muted small">
+              {music ? `♪ ${music.name}` : "Elegí un tema de tu carpeta. Baja sola cuando hablás y se apaga al final."}
+            </div>
+          </div>
+          {music && (
+            <div className="row">
+              {(["baja", "media", "alta"] as const).map((v) => (
+                <button key={v} className={`btn ${musicVolume === v ? "btn-primary" : ""}`} onClick={() => setMusicVolume(v)}>
+                  {v[0].toUpperCase() + v.slice(1)}
+                </button>
+              ))}
+              <button className="btn btn-ghost" onClick={() => setMusic(null)}>
+                Quitar
+              </button>
+            </div>
+          )}
+          <button className="btn" onClick={() => setShowMusic((v) => !v)}>
+            {showMusic ? "Listo" : music ? "Cambiar" : "Elegir música"}
+          </button>
+        </div>
+        {showMusic && (
+          <AssetLibrary
+            mode="pick"
+            kinds={["audio"]}
+            picked={music ? [music.id] : []}
+            onPick={(a) => {
+              setMusic((m) => (m?.id === a.id ? null : a));
+              setShowMusic(false);
+            }}
+            onUploaded={(a) => {
+              setMusic(a);
+              setShowMusic(false);
+            }}
+          />
+        )}
+        <div className="muted small">Usá música sin copyright: si no, Instagram o TikTok pueden silenciar el video.</div>
       </div>
 
       <div className="card stack">

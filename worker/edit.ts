@@ -23,7 +23,11 @@ type EditParams = {
   templates?: TemplateInstance[];
   instructions: string;
   changes?: string;
+  music?: { path: string; name: string; volume: "baja" | "media" | "alta" };
 };
+
+// Volumen de la música respecto de la voz (antes del ducking).
+const MUSIC_VOLUME = { baja: 0.12, media: 0.2, alta: 0.32 } as const;
 
 type EditResult = JobResult & { words: Word[]; plan: EditPlan; duration: number; summary: string };
 
@@ -126,8 +130,19 @@ export async function runEdit(job: Job, parent: Job | null): Promise<EditResult>
     const cues = buildCues(words, segments, new Set(plan.highlights), style.captions.wordsPerLine);
     await writeFile(assFile, toAss(cues, style, templateLines));
 
+    let music: { file: string; volume: number; duration: number } | undefined;
+    if (params.music) {
+      const file = join(dir, "music");
+      try {
+        await download("uploads", params.music.path, file);
+        music = { file, volume: MUSIC_VOLUME[params.music.volume] ?? MUSIC_VOLUME.baja, duration };
+      } catch {
+        // el usuario borró la música de su carpeta: seguimos sin música
+      }
+    }
+
     const outFile = join(dir, "out.mp4");
-    await render({ input: rawFile, output: outFile, segments, overlays, assFile, fontsDir: fontsDir() });
+    await render({ input: rawFile, output: outFile, segments, overlays, assFile, fontsDir: fontsDir(), music });
 
     const path = await uploadOutput(job, outFile, "mp4", "video/mp4");
     return {

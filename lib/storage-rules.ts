@@ -8,9 +8,11 @@ export const REFERENCES_PER_DAY = 5;
 export const OUTPUT_RETENTION_DAYS = 90;
 
 export const RAW_EXT = /\.(mp4|mov|m4v|webm)$/i;
-export const ASSET_EXT = /\.(mp4|mov|m4v|webm|png|jpe?g|webp|gif)$/i;
+export const ASSET_EXT = /\.(mp4|mov|m4v|webm|png|jpe?g|webp|gif|mp3|m4a|wav|aac|ogg)$/i;
+export const AUDIO_EXT = /\.(mp3|m4a|wav|aac|ogg)$/i;
 
-export function assetKind(filename: string): "image" | "video" {
+export function assetKind(filename: string): "image" | "video" | "audio" {
+  if (AUDIO_EXT.test(filename)) return "audio";
   return /\.(mp4|mov|m4v|webm)$/i.test(filename) ? "video" : "image";
 }
 

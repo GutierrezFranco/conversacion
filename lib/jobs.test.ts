@@ -71,3 +71,12 @@ test("analizar una referencia es gratis y valida qué se copia", () => {
   assert.equal(resolveJob(input).cost, 0);
   assert.equal(jobInput.safeParse({ kind: "reference", path: "x", name: "y", copy: ["colores"] }).success, false);
 });
+
+test("la música de fondo es opcional y viaja en el trabajo", () => {
+  const input = jobInput.parse({ kind: "edit", rawPath: "u1/raw/a.mp4", styleId: "tech", music: { path: "u1/assets/t.mp3", name: "t.mp3" } });
+  if (input.kind !== "edit") throw new Error("tipo inesperado");
+  assert.deepEqual(resolveJob(input).params.music, { path: "u1/assets/t.mp3", name: "t.mp3", volume: "baja" });
+  const sin = jobInput.parse({ kind: "edit", rawPath: "u1/raw/a.mp4", styleId: "tech" });
+  if (sin.kind !== "edit") throw new Error("tipo inesperado");
+  assert.equal(resolveJob(sin).params.music, undefined);
+});

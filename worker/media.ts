@@ -44,12 +44,15 @@ export function buildRenderArgs(opts: {
   overlays: RenderOverlay[];
   assFile: string;
   fontsDir?: string;
+  // Música de fondo: se repite si es corta, baja sola cuando hablás y se apaga al final.
+  music?: { file: string; volume: number; duration: number };
 }): string[] {
   const args = ["-y", "-i", opts.input];
   for (const o of opts.overlays) {
     if (o.kind === "image") args.push("-loop", "1", "-t", (o.end - o.start + 0.1).toFixed(3), "-i", o.file);
     else args.push("-i", o.file);
   }
+  if (opts.music) args.push("-stream_loop", "-1", "-i", opts.music.file);
 
   const f: string[] = [];
   const cover = `scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},setsar=1,fps=30`;
@@ -80,9 +83,25 @@ export function buildRenderArgs(opts: {
   const fonts = opts.fontsDir ? `:fontsdir='${opts.fontsDir}'` : "";
   f.push(`[${last}]ass='${assPath}'${fonts},format=yuv420p[vout]`);
 
+  let audioOut = "aout";
+  if (opts.music) {
+    const m = opts.music;
+    const idx = opts.overlays.length + 1;
+    const fadeStart = Math.max(0, m.duration - 1.5).toFixed(3);
+    f.push(`[aout]asplit=2[voice][sidechain]`);
+    f.push(
+      `[${idx}:a]atrim=duration=${m.duration.toFixed(3)},asetpts=PTS-STARTPTS,aformat=sample_rates=48000:channel_layouts=stereo,` +
+        `volume=${m.volume.toFixed(3)},afade=t=out:st=${fadeStart}:d=1.5[music]`,
+    );
+    // Ducking: la música baja mientras hay voz.
+    f.push(`[music][sidechain]sidechaincompress=threshold=0.03:ratio=6:attack=15:release=350[ducked]`);
+    f.push(`[voice][ducked]amix=inputs=2:duration=first:normalize=0[mix]`);
+    audioOut = "mix";
+  }
+
   args.push(
     "-filter_complex", f.join(";"),
-    "-map", "[vout]", "-map", "[aout]",
+    "-map", "[vout]", "-map", `[${audioOut}]`,
     "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
     "-c:a", "aac", "-b:a", "160k",
     "-movflags", "+faststart",

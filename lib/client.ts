@@ -60,7 +60,7 @@ export const STATUS_CLASS: Record<JobSummary["status"], string> = {
   failed: "pill pill-danger",
 };
 
-export type Asset = { id: string; path: string; name: string; kind: "image" | "video"; size_bytes: number; created_at: string; url: string | null };
+export type Asset = { id: string; path: string; name: string; kind: "image" | "video" | "audio"; size_bytes: number; created_at: string; url: string | null };
 
 // Sube un recurso y lo guarda en la carpeta del usuario para reusarlo después.
 export async function uploadAsset(file: File, onProgress?: (pct: number) => void): Promise<Asset> {

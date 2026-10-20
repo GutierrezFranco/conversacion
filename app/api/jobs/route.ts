@@ -53,7 +53,10 @@ export function POST(request: Request) {
     } else {
       let customStyle: EditStyle | undefined;
       if (input.kind === "edit") {
-        const ok = ownsPath(user.id, input.rawPath, "raw") && input.resources.every((r) => ownsPath(user.id, r.path, "assets"));
+        const ok =
+          ownsPath(user.id, input.rawPath, "raw") &&
+          input.resources.every((r) => ownsPath(user.id, r.path, "assets")) &&
+          (!input.music || ownsPath(user.id, input.music.path, "assets"));
         if (!ok) throw new HttpError("Archivo inválido.", 403);
         if (input.styleId.startsWith("custom:")) {
           const { data } = await admin
