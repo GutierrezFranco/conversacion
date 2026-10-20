@@ -103,8 +103,12 @@ export function ReelDetail({
             ) : (
               <div className="muted small" style={{ padding: 20, textAlign: "center" }}>
                 {job.error ?? "No se pudo editar."}
-                <br />
-                Te devolvimos los créditos.
+                {!job.error?.includes("devolvimos") && (
+                  <>
+                    <br />
+                    Te devolvimos los créditos.
+                  </>
+                )}
               </div>
             )}
           </div>

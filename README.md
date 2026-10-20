@@ -88,7 +88,7 @@ Para arrancar sin pagar nada por mes (solo Claude por cada video, que sale del p
 | Web | Netlify (plan gratis) o Vercel Hobby mientras no cobres | Importar el repo y cargar las variables. Vercel Hobby no permite uso comercial. |
 | Base y login | Supabase (plan gratis) | Igual que arriba. Con el worker andando, el proyecto no se pausa por inactividad. |
 | Videos y recursos | Cloudflare R2 (10 GB gratis, sin cargo por descargas) | `STORAGE_PROVIDER=r2` y las variables `R2_*`. El plan gratis de Supabase no acepta archivos de más de 50 MB. |
-| Transcripción | Whisper dentro del worker | `TRANSCRIBER=whisper`. Ya viene compilado en `Dockerfile.worker` con el modelo `small`. |
+| Transcripción | Whisper dentro del worker | `TRANSCRIBER=whisper`. Ya viene compilado en `Dockerfile.worker` con el modelo `small` comprimido (`small-q5_1`), que entra en servidores de 1 GB de RAM. |
 | Mails del login | Resend (unos 3.000 por mes gratis) | Supabase → Authentication → SMTP. El envío por defecto de Supabase tiene un límite muy bajo por hora. |
 | Worker | Una notebook que no uses, o un servidor gratis/barato | Ver abajo. |
 
