@@ -46,7 +46,10 @@ export function buildRenderArgs(opts: {
   // Música de fondo: se repite si es corta, baja sola cuando hablás y se apaga al final.
   music?: { file: string; volume: number; duration: number };
 }): string[] {
-  const args = ["-y", "-i", opts.input];
+  // Pocos hilos: ffmpeg usa uno por cada núcleo que ve, y en servidores compartidos ve decenas;
+  // cada hilo guarda sus propios fotogramas y se queda sin memoria. FFMPEG_THREADS lo cambia.
+  const threads = String(process.env.FFMPEG_THREADS ?? 2);
+  const args = ["-y", "-threads", threads, "-i", opts.input];
   for (const o of opts.overlays) {
     if (o.kind === "image") args.push("-loop", "1", "-t", (o.end - o.start + 0.1).toFixed(3), "-i", o.file);
     else args.push("-i", o.file);
@@ -56,12 +59,16 @@ export function buildRenderArgs(opts: {
   const f: string[] = [];
   const cover = `scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},setsar=1,fps=30`;
 
+  const n = opts.segments.length;
+  // Se achica una sola vez antes de repartir en segmentos: si el crudo es 4K, cada fotograma
+  // en espera ocupa 4 veces menos memoria.
+  f.push(`[0:v]${cover},split=${n}${opts.segments.map((_, i) => `[c${i}]`).join("")}`);
+  f.push(`[0:a]asplit=${n}${opts.segments.map((_, i) => `[ca${i}]`).join("")}`);
   opts.segments.forEach((s, i) => {
     const zoom = s.zoom ? `,scale=${Math.round(W * 1.12)}:-2,crop=${W}:${H},setsar=1` : "";
-    f.push(`[0:v]trim=start=${s.start.toFixed(3)}:end=${s.end.toFixed(3)},setpts=PTS-STARTPTS,${cover}${zoom}[v${i}]`);
-    f.push(`[0:a]atrim=start=${s.start.toFixed(3)}:end=${s.end.toFixed(3)},asetpts=PTS-STARTPTS[a${i}]`);
+    f.push(`[c${i}]trim=start=${s.start.toFixed(3)}:end=${s.end.toFixed(3)},setpts=PTS-STARTPTS${zoom}[v${i}]`);
+    f.push(`[ca${i}]atrim=start=${s.start.toFixed(3)}:end=${s.end.toFixed(3)},asetpts=PTS-STARTPTS[a${i}]`);
   });
-  const n = opts.segments.length;
   f.push(`${opts.segments.map((_, i) => `[v${i}][a${i}]`).join("")}concat=n=${n}:v=1:a=1[base][aout]`);
 
   let last = "base";
@@ -103,9 +110,10 @@ export function buildRenderArgs(opts: {
   }
 
   args.push(
+    "-filter_complex_threads", threads,
     "-filter_complex", f.join(";"),
     "-map", "[vout]", "-map", `[${audioOut}]`,
-    "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+    "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-threads", threads,
     "-c:a", "aac", "-b:a", "160k",
     "-movflags", "+faststart",
     opts.output,
