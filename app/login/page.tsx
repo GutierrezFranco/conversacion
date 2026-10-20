@@ -22,7 +22,7 @@ function LoginForm() {
   const next = params.get("next") ?? "/app";
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
-  const [error, setError] = useState(params.get("error") ? "El link venció o ya se usó. Pedí uno nuevo." : "");
+  const [error, setError] = useState(params.get("error") ? "No pudimos hacerte entrar: el link venció o hubo un problema con Google. Probá de nuevo." : "");
   const [loading, setLoading] = useState(false);
 
   const redirectTo = () => `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
