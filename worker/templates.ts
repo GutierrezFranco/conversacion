@@ -1,6 +1,7 @@
 // Dibuja las plantillas como eventos ASS (formas vectoriales + texto), en la misma pasada
 // que los subtítulos. No necesita imágenes ni servicios externos.
 
+import { getFont } from "../lib/fonts";
 import { getTemplate, type TemplateInstance } from "../lib/templates";
 
 const W = 1080;
@@ -12,10 +13,12 @@ const DARK = "&H18110F&"; // #0F1118
 const CARD = "&H261E1A&"; // #1A1E26
 const GRAY = "&H857A7A&"; // #7A7A85
 
-// Ancho promedio de un carácter en Poppins, relativo al tamaño de letra en ASS
-// (medido renderizando; con un poco de margen para palabras con letras anchas).
-const CHAR_W = 0.42;
-const CHAR_W_UPPER = 0.48;
+// Todas las medidas de acá son píxeles reales (como en CSS). libass mide Poppins incluyendo su
+// espacio vertical reservado, así que al escribir \\fs se corrige con su assScale (lib/fonts.ts).
+const POPPINS_ASS_SCALE = getFont("Poppins Bold")?.assScale ?? 1;
+// Ancho promedio de un carácter de Poppins, relativo al tamaño en px (con un poco de margen).
+const CHAR_W = 0.6;
+const CHAR_W_UPPER = 0.7;
 
 export function wrap(text: string, maxChars: number): string[] {
   const lines: string[] = [];
@@ -62,12 +65,16 @@ function shape(ctx: Ctx, layer: number, x: number, y: number, color: string, pat
 }
 
 function label(ctx: Ctx, layer: number, x: number, y: number, size: number, color: string, text: string, font = "Poppins Bold"): string {
-  return `Dialogue: ${layer},${ctx.start},${ctx.end},Tpl,,0,0,0,,{\\an5\\pos(${Math.round(x)},${Math.round(y)})\\fn${font}\\fs${size}\\bord0\\shad0\\1c${color}${FADE}}${clean(text)}`;
+  return `Dialogue: ${layer},${ctx.start},${ctx.end},Tpl,,0,0,0,,{\\an5\\pos(${Math.round(x)},${Math.round(y)})\\fn${font}\\fs${fs(size)}\\bord0\\shad0\\1c${color}${FADE}}${clean(text)}`;
+}
+
+function fs(px: number): number {
+  return Math.round(px * POPPINS_ASS_SCALE);
 }
 
 // Texto alineado a la izquierda, centrado verticalmente en y.
 function leftLabel(ctx: Ctx, layer: number, x: number, y: number, size: number, color: string, text: string, font = "Poppins Bold"): string {
-  return `Dialogue: ${layer},${ctx.start},${ctx.end},Tpl,,0,0,0,,{\\an4\\pos(${Math.round(x)},${Math.round(y)})\\fn${font}\\fs${size}\\bord0\\shad0\\1c${color}${FADE}}${clean(text)}`;
+  return `Dialogue: ${layer},${ctx.start},${ctx.end},Tpl,,0,0,0,,{\\an4\\pos(${Math.round(x)},${Math.round(y)})\\fn${font}\\fs${fs(size)}\\bord0\\shad0\\1c${color}${FADE}}${clean(text)}`;
 }
 
 function centeredBox(width: number): number {
@@ -78,32 +85,32 @@ export function templateEvents(t: TemplateInstance, ctx: Ctx): string[] {
   const v = t.values;
   switch (t.templateId) {
     case "pregunta": {
-      const width = 840;
+      const width = 860;
       const x = centeredBox(width);
       const y = 300;
-      const header = 118;
-      const lines = wrap(v.pregunta, 24);
-      const lineH = 80;
-      const body = lines.length * lineH + 70;
+      const header = 120;
+      const lines = wrap(v.pregunta, 22);
+      const lineH = 72;
+      const body = lines.length * lineH + 88;
       const out = [
-        shape(ctx, 10, x, y, WHITE, roundedRect(width, header + body, 44)),
-        shape(ctx, 11, x, y, ACCENT, roundedRect(width, header, 44)),
+        shape(ctx, 10, x, y, WHITE, roundedRect(width, header + body, 48)),
+        shape(ctx, 11, x, y, ACCENT, roundedRect(width, header, 48)),
         shape(ctx, 11, x, y + header / 2, ACCENT, roundedRect(width, header / 2, 0)),
-        label(ctx, 12, W / 2, y + header / 2, 50, WHITE, v.titulo.toLocaleUpperCase("es"), "Poppins ExtraBold"),
+        label(ctx, 12, W / 2, y + header / 2, 46, WHITE, v.titulo.toLocaleUpperCase("es"), "Poppins ExtraBold"),
       ];
-      lines.forEach((line, i) => out.push(label(ctx, 12, W / 2, y + header + 35 + lineH * (i + 0.5), 64, DARK, line)));
+      lines.forEach((line, i) => out.push(label(ctx, 12, W / 2, y + header + 44 + lineH * (i + 0.5), 60, DARK, line)));
       return out;
     }
     case "comentario": {
       const width = 880;
       const x = centeredBox(width);
       const y = 300;
-      const pad = 40;
+      const pad = 38;
       const r = 34;
       const lines = wrap(v.comentario, 26);
-      const lineH = 60;
-      const top = pad + r * 2 + 24;
-      const height = top + lines.length * lineH + pad - 10;
+      const lineH = 64;
+      const top = pad + r * 2 + 18;
+      const height = top + lines.length * lineH + pad;
       const user = `@${v.usuario.replace(/^@/, "")}`;
       const initial = (v.usuario.replace(/^@/, "")[0] ?? "?").toUpperCase();
       const out = [
@@ -111,41 +118,41 @@ export function templateEvents(t: TemplateInstance, ctx: Ctx): string[] {
         // colita de la burbuja
         shape(ctx, 10, x + 70, y + height - 2, WHITE, "m 0 0 l 0 30 l 48 0"),
         shape(ctx, 11, x + pad, y + pad, ACCENT, roundedRect(r * 2, r * 2, r)),
-        label(ctx, 12, x + pad + r, y + pad + r, 40, WHITE, initial, "Poppins ExtraBold"),
-        leftLabel(ctx, 12, x + pad + r * 2 + 22, y + pad + r, 34, GRAY, `${v.titulo} ${user}`, "Poppins Medium"),
+        label(ctx, 12, x + pad + r, y + pad + r, 36, WHITE, initial, "Poppins ExtraBold"),
+        leftLabel(ctx, 12, x + pad + r * 2 + 20, y + pad + r, 32, GRAY, `${v.titulo} ${user}`, "Poppins Medium"),
       ];
-      lines.forEach((line, i) => out.push(leftLabel(ctx, 12, x + pad, y + top + lineH * (i + 0.5), 54, DARK, line, "Poppins ExtraBold")));
+      lines.forEach((line, i) => out.push(leftLabel(ctx, 12, x + pad, y + top + lineH * (i + 0.5), 56, DARK, line, "Poppins ExtraBold")));
       return out;
     }
     case "gancho": {
       const text = v.texto.toLocaleUpperCase("es");
-      const lines = wrap(text, 18);
-      const size = 88;
-      const lineH = 104;
-      const width = Math.min(980, Math.max(...lines.map((l) => textWidth(l, size, true))) + 90);
-      const height = lines.length * lineH + 50;
+      const lines = wrap(text, 16);
+      const size = 86;
+      const lineH = 96;
+      const width = Math.min(980, Math.max(...lines.map((l) => textWidth(l, size, true))) + 92);
+      const height = lines.length * lineH + 52;
       const x = centeredBox(width);
       const y = 250;
       const out = [shape(ctx, 10, x, y, ACCENT, roundedRect(width, height, 28))];
-      lines.forEach((line, i) => out.push(label(ctx, 11, W / 2, y + 25 + lineH * (i + 0.5), size, DARK, line, "Poppins ExtraBold")));
+      lines.forEach((line, i) => out.push(label(ctx, 11, W / 2, y + 26 + lineH * (i + 0.5), size, DARK, line, "Poppins ExtraBold")));
       return out;
     }
     case "precio": {
-      const width = Math.min(900, Math.max(textWidth(v.servicio, 52, false), textWidth(v.precio, 118, false)) + 120);
-      const height = 250;
+      const width = Math.min(980, Math.max(textWidth(v.servicio, 52, false), textWidth(v.precio, 122, false)) + 120);
+      const height = 270;
       const x = centeredBox(width);
       const y = 360;
       return [
         shape(ctx, 10, x, y, CARD, roundedRect(width, height, 36)),
-        label(ctx, 12, W / 2, y + 70, 52, WHITE, v.servicio),
-        label(ctx, 12, W / 2, y + 168, 118, ACCENT, v.precio, "Poppins ExtraBold"),
+        label(ctx, 12, W / 2, y + 72, 52, WHITE, v.servicio, "Poppins SemiBold"),
+        label(ctx, 12, W / 2, y + 180, 122, ACCENT, v.precio, "Poppins ExtraBold"),
       ];
     }
     case "etiqueta": {
       const text = v.texto.toLocaleUpperCase("es");
-      const size = 72;
-      const width = textWidth(text, size, true) + 110;
-      const height = 112;
+      const size = 74;
+      const width = Math.min(980, textWidth(text, size, true) + 112);
+      const height = 118;
       const x = centeredBox(width);
       const y = 300;
       return [shape(ctx, 10, x, y, ACCENT, roundedRect(width, height, height / 2)), label(ctx, 11, W / 2, y + height / 2, size, DARK, text, "Poppins ExtraBold")];
@@ -153,15 +160,15 @@ export function templateEvents(t: TemplateInstance, ctx: Ctx): string[] {
     case "cta": {
       const size = 74;
       const lines = wrap(v.texto, 22);
-      const lineH = 90;
-      const extra = v.detalle ? 70 : 0;
-      const width = Math.min(960, Math.max(...lines.map((l) => textWidth(l, size, false)), v.detalle ? textWidth(v.detalle, 48, false) : 0) + 120);
-      const height = lines.length * lineH + extra + 70;
+      const lineH = 88;
+      const extra = v.detalle ? 68 : 0;
+      const width = Math.min(980, Math.max(...lines.map((l) => textWidth(l, size, false)), v.detalle ? textWidth(v.detalle, 48, false) : 0) + 120);
+      const height = lines.length * lineH + extra + 80;
       const x = centeredBox(width);
       const y = 520;
       const out = [shape(ctx, 10, x, y, WHITE, roundedRect(width, height, 40))];
-      lines.forEach((line, i) => out.push(label(ctx, 12, W / 2, y + 35 + lineH * (i + 0.5), size, DARK, line, "Poppins ExtraBold")));
-      if (v.detalle) out.push(label(ctx, 12, W / 2, y + 35 + lineH * lines.length + 30, 48, ACCENT, v.detalle));
+      lines.forEach((line, i) => out.push(label(ctx, 12, W / 2, y + 40 + lineH * (i + 0.5), size, DARK, line, "Poppins ExtraBold")));
+      if (v.detalle) out.push(label(ctx, 12, W / 2, y + 40 + lineH * lines.length + 32, 48, ACCENT, v.detalle));
       return out;
     }
     default:

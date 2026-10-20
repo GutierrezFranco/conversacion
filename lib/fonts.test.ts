@@ -12,3 +12,7 @@ test("el worker instala todas las fuentes del catálogo", () => {
 test("los estilos predefinidos usan fuentes del catálogo", () => {
   for (const s of STYLES) assert.ok(FONTS.some((f) => f.ass === s.captions.font), `${s.id} usa ${s.captions.font}`);
 });
+
+test("cada fuente tiene su corrección de tamaño para ffmpeg", () => {
+  for (const f of FONTS) assert.ok(f.assScale >= 1 && f.assScale < 2, `${f.ass}: ${f.assScale}`);
+});

@@ -1,6 +1,7 @@
 // Lógica pura de la edición: de palabras + plan a segmentos, tiempos y subtítulos.
 // No toca archivos ni red, así se puede testear entera.
 
+import { getFont } from "../lib/fonts";
 import type { EditStyle } from "../lib/styles";
 
 export type Word = { i: number; text: string; start: number; end: number };
@@ -124,6 +125,7 @@ function escapeAss(text: string): string {
 // Genera el archivo .ass que ffmpeg dibuja encima del video.
 export function toAss(cues: Cue[], style: EditStyle, extraEvents: string[] = []): string {
   const c = style.captions;
+  const fontSize = Math.round(c.size * (getFont(c.font)?.assScale ?? 1));
   // BorderStyle 3 dibuja una caja detrás del texto con el color de OutlineColour.
   const borderStyle = c.box ? 3 : 1;
   const header = [
@@ -136,7 +138,7 @@ export function toAss(cues: Cue[], style: EditStyle, extraEvents: string[] = [])
     "",
     "[V4+ Styles]",
     "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-    `Style: Main,${c.font},${c.size},${c.primary},${c.highlight},${c.outline},&H64000000,0,${c.italic ? -1 : 0},0,0,100,100,0,0,${borderStyle},${c.outlineWidth},${c.shadow ?? 0},2,80,80,${c.marginV},1`,
+    `Style: Main,${c.font},${fontSize},${c.primary},${c.highlight},${c.outline},&H64000000,0,${c.italic ? -1 : 0},0,0,100,100,0,0,${borderStyle},${c.outlineWidth},${c.shadow ?? 0},2,80,80,${c.marginV},1`,
     // Base para las plantillas: cada evento trae su fuente, color y posición.
     "Style: Tpl,Poppins Bold,60,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1",
     "",
