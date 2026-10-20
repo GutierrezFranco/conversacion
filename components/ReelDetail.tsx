@@ -7,7 +7,7 @@ import { api, STATUS_CLASS, STATUS_LABEL, type JobSummary } from "@/lib/client";
 
 type JobDetail = JobSummary & {
   params: { styleId?: string; changes?: string; style?: { name: string } };
-  result: { summary?: string; duration?: number } | null;
+  result: { summary?: string; duration?: number; progress?: { step: string; pct: number } } | null;
   rawUrl: string | null;
 };
 
@@ -95,11 +95,7 @@ export function ReelDetail({
             {edited?.url ? (
               <video src={edited.url} controls playsInline />
             ) : working ? (
-              <div style={{ textAlign: "center", padding: 20 }}>
-                <div className="spinner" style={{ margin: "0 auto 12px" }} />
-                <div className="small">Estamos editando tu reel</div>
-                <div className="muted small">Suele tardar entre 2 y 6 minutos. Podés cerrar esta página.</div>
-              </div>
+              <EditProgress status={job.status} progress={job.result?.progress} />
             ) : (
               <div className="muted small" style={{ padding: 20, textAlign: "center" }}>
                 {job.error ?? "No se pudo editar."}
@@ -150,6 +146,53 @@ export function ReelDetail({
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Pasos que ve el usuario mientras espera; los ids son los que manda el worker (worker/progress.ts).
+const STEPS = [
+  { id: "descarga", label: "Preparando tu video" },
+  { id: "escucha", label: "Escuchando lo que decís" },
+  { id: "plan", label: "Eligiendo los mejores cortes" },
+  { id: "render", label: "Armando el video con subtítulos" },
+  { id: "subida", label: "Último retoque" },
+];
+
+function EditProgress({ status, progress }: { status: JobSummary["status"]; progress?: { step: string; pct: number } }) {
+  if (status === "queued" || !progress) {
+    return (
+      <div style={{ textAlign: "center", padding: 20 }}>
+        <div className="spinner" style={{ margin: "0 auto 12px" }} />
+        <div className="small">{status === "queued" ? "En la fila, ya arranca…" : "Arrancando…"}</div>
+        <div className="muted small">Suele tardar entre 3 y 8 minutos. Podés cerrar esta página: te queda guardado.</div>
+      </div>
+    );
+  }
+  const current = Math.max(0, STEPS.findIndex((s) => s.id === progress.step));
+  return (
+    <div style={{ padding: 20, width: "100%" }}>
+      <div className="row" style={{ marginBottom: 8 }}>
+        <b className="small">Editando tu reel</b>
+        <div className="spacer" />
+        <b className="small" style={{ color: "var(--accent)" }}>{progress.pct}%</b>
+      </div>
+      <div className="progress" style={{ marginBottom: 16 }}>
+        <div style={{ width: `${progress.pct}%`, transition: "width 1s ease" }} />
+      </div>
+      <div style={{ display: "grid", gap: 8 }}>
+        {STEPS.map((s, i) => (
+          <div key={s.id} className="small" style={{ display: "flex", gap: 8, alignItems: "center", opacity: i > current ? 0.45 : 1 }}>
+            <span style={{ width: 16, textAlign: "center", color: i < current ? "var(--ok)" : "var(--accent)" }}>
+              {i < current ? "✓" : i === current ? "●" : "○"}
+            </span>
+            <span style={{ fontWeight: i === current ? 600 : 400 }}>{s.label}</span>
+          </div>
+        ))}
+      </div>
+      <div className="muted small" style={{ marginTop: 16 }}>
+        Podés cerrar esta página: te queda guardado.
       </div>
     </div>
   );

@@ -1,13 +1,20 @@
 import { spawn } from "node:child_process";
 import type { Segment } from "./timeline";
 
-export function run(cmd: string, args: string[]): Promise<string> {
+// onOutput recibe cada pedazo de salida (stdout y stderr) a medida que llega, para leer el avance.
+export function run(cmd: string, args: string[], onOutput?: (chunk: string) => void): Promise<string> {
   return new Promise((resolve, reject) => {
     const p = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"] });
     let out = "";
     let err = "";
-    p.stdout.on("data", (d) => (out += d));
-    p.stderr.on("data", (d) => (err = (err + d).slice(-8000)));
+    p.stdout.on("data", (d) => {
+      out += d;
+      onOutput?.(String(d));
+    });
+    p.stderr.on("data", (d) => {
+      err = (err + d).slice(-8000);
+      onOutput?.(String(d));
+    });
     p.on("error", reject);
     // Si el sistema mata el proceso (por ejemplo, por falta de memoria) no hay código sino una señal.
     p.on("close", (code, signal) =>
@@ -45,6 +52,8 @@ export function buildRenderArgs(opts: {
   fontsDir?: string;
   // Música de fondo: se repite si es corta, baja sola cuando hablás y se apaga al final.
   music?: { file: string; volume: number; duration: number };
+  // Un fotograma clave cada tantos cuadros. HyperFrames lo necesita seguido para leer el video sin congelarse.
+  keyframeEvery?: number;
 }): string[] {
   // Pocos hilos: ffmpeg usa uno por cada núcleo que ve, y en servidores compartidos ve decenas;
   // cada hilo guarda sus propios fotogramas y se queda sin memoria. FFMPEG_THREADS lo cambia.
@@ -114,6 +123,7 @@ export function buildRenderArgs(opts: {
     "-filter_complex", f.join(";"),
     "-map", "[vout]", "-map", `[${audioOut}]`,
     "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-threads", threads,
+    ...(opts.keyframeEvery ? ["-g", String(opts.keyframeEvery), "-keyint_min", String(opts.keyframeEvery)] : []),
     "-c:a", "aac", "-b:a", "160k",
     "-movflags", "+faststart",
     opts.output,
@@ -121,8 +131,16 @@ export function buildRenderArgs(opts: {
   return args;
 }
 
-export async function render(opts: Parameters<typeof buildRenderArgs>[0]) {
-  await run("ffmpeg", buildRenderArgs(opts));
+// onProgress recibe de 0 a 1 según cuánto del video final ya se armó.
+export async function render(opts: Parameters<typeof buildRenderArgs>[0], onProgress?: (fraction: number) => void) {
+  const total = opts.segments.reduce((sum, s) => sum + (s.end - s.start), 0);
+  const args = buildRenderArgs(opts);
+  // -progress escribe "out_time_us=..." en stdout cada medio segundo.
+  args.splice(args.length - 1, 0, "-progress", "pipe:1", "-nostats");
+  await run("ffmpeg", args, (chunk) => {
+    const m = [...chunk.matchAll(/out_time_us=(\d+)/g)].pop();
+    if (m && total > 0) onProgress?.(Number(m[1]) / 1e6 / total);
+  });
 }
 
 export function fontsDir(): string | undefined {
