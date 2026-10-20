@@ -1,0 +1,142 @@
+// Estilos de edición. Cada uno define cómo se ven los subtítulos y cómo tiene que cortar Claude.
+// Los colores van en formato ASS (&HBBGGRR), que es lo que usa ffmpeg para dibujar subtítulos.
+
+export type EditStyle = {
+  id: string;
+  name: string;
+  tagline: string;
+  description: string;
+  // Indicaciones para Claude sobre ritmo y tono de la edición.
+  direction: string;
+  captions: {
+    font: string;
+    size: number;
+    primary: string; // color del texto
+    highlight: string; // color de la palabra destacada
+    outline: string;
+    outlineWidth: number;
+    uppercase: boolean;
+    wordsPerLine: number;
+    marginV: number; // distancia desde abajo, en píxeles sobre 1920
+  };
+};
+
+export const STYLES: EditStyle[] = [
+  {
+    id: "tech",
+    name: "Tech Cinemático",
+    tagline: "Tutoriales con onda",
+    description: "Cortes rápidos, subtítulos grandes y capturas de la herramienta en el momento justo.",
+    direction:
+      "Ritmo rápido. Sacá todas las pausas y muletillas. Mostrá los recursos (capturas, pantallas) exactamente cuando se mencionan. Destacá nombres de herramientas, números y resultados.",
+    captions: {
+      font: "Poppins ExtraBold",
+      size: 86,
+      primary: "&H00FFFFFF",
+      highlight: "&H0000A5FF",
+      outline: "&H00000000",
+      outlineWidth: 6,
+      uppercase: true,
+      wordsPerLine: 3,
+      marginV: 520,
+    },
+  },
+  {
+    id: "golden",
+    name: "Golden Hour",
+    tagline: "Cálido y cercano",
+    description: "Ritmo tranquilo, subtítulos suaves en tonos cálidos. Para historias y reflexiones.",
+    direction:
+      "Ritmo medio. Sacá errores y silencios largos pero dejá respirar las frases importantes. Destacá palabras emocionales.",
+    captions: {
+      font: "Poppins SemiBold",
+      size: 72,
+      primary: "&H00F0F8FF",
+      highlight: "&H0055C8FF",
+      outline: "&H00203040",
+      outlineWidth: 4,
+      uppercase: false,
+      wordsPerLine: 4,
+      marginV: 480,
+    },
+  },
+  {
+    id: "impacto",
+    name: "Impacto",
+    tagline: "Ventas y anuncios",
+    description: "Frases cortas, una o dos palabras por pantalla y destacados fuertes. Para vender.",
+    direction:
+      "Ritmo muy rápido, estilo anuncio. Cortes agresivos entre frases. Destacá beneficios, precios, llamados a la acción.",
+    captions: {
+      font: "Anton",
+      size: 120,
+      primary: "&H00FFFFFF",
+      highlight: "&H0000E1FF",
+      outline: "&H00000000",
+      outlineWidth: 8,
+      uppercase: true,
+      wordsPerLine: 2,
+      marginV: 760,
+    },
+  },
+  {
+    id: "storytelling",
+    name: "Storytelling",
+    tagline: "Historias personales",
+    description: "Subtítulos claros, cortes limpios y un tono cercano para contar historias.",
+    direction:
+      "Ritmo natural. Respetá la narración: sacá solo errores, repeticiones y silencios muy largos. Destacá el giro de la historia.",
+    captions: {
+      font: "Poppins Bold",
+      size: 70,
+      primary: "&H00FFFFFF",
+      highlight: "&H004BB8F5",
+      outline: "&H00000000",
+      outlineWidth: 4,
+      uppercase: false,
+      wordsPerLine: 4,
+      marginV: 420,
+    },
+  },
+  {
+    id: "podcast",
+    name: "Clip de podcast",
+    tagline: "Charlas y entrevistas",
+    description: "Subtítulos en caja muy legibles. Para clips de charlas largas.",
+    direction:
+      "Encontrá el fragmento más fuerte y autocontenido. Cortes mínimos dentro de las frases. Destacá la idea central.",
+    captions: {
+      font: "Poppins Bold",
+      size: 64,
+      primary: "&H00FFFFFF",
+      highlight: "&H0000D7FF",
+      outline: "&H00000000",
+      outlineWidth: 3,
+      uppercase: false,
+      wordsPerLine: 5,
+      marginV: 360,
+    },
+  },
+  {
+    id: "minimal",
+    name: "Minimal",
+    tagline: "Limpio y sin vueltas",
+    description: "Sin distracciones: cortes prolijos y subtítulos chicos. Que se luzca lo que decís.",
+    direction: "Ritmo natural. Solo limpiá errores y silencios. Usá pocos destacados.",
+    captions: {
+      font: "Poppins Medium",
+      size: 56,
+      primary: "&H00FFFFFF",
+      highlight: "&H00FFFFFF",
+      outline: "&H80000000",
+      outlineWidth: 2,
+      uppercase: false,
+      wordsPerLine: 5,
+      marginV: 300,
+    },
+  },
+];
+
+export function getStyle(id: string): EditStyle | undefined {
+  return STYLES.find((s) => s.id === id);
+}

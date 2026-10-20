@@ -1,0 +1,79 @@
+import { NextResponse } from "next/server";
+import { handle, HttpError, requireUser, signPaths } from "@/lib/api";
+import { iterationJob, jobInput, ownsPath, resolveJob, type ResolvedJob } from "@/lib/jobs";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+
+export function GET(request: Request) {
+  return handle(async () => {
+    await requireUser();
+    const kind = new URL(request.url).searchParams.get("kind");
+    const supabase = await createClient();
+    let query = supabase
+      .from("jobs")
+      .select("id, kind, status, title, cost, parent_job_id, error, result, created_at, updated_at")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (kind) query = query.eq("kind", kind);
+    const { data, error } = await query;
+    if (error) throw error;
+
+    // Firmamos las URLs de los resultados para poder mostrarlos en la galería.
+    type Output = { path: string; type: "video" | "image" };
+    const outputsOf = (r: unknown) => ((r as { outputs?: Output[] } | null)?.outputs ?? []);
+    const signed = await signPaths("outputs", data.flatMap((j) => outputsOf(j.result).map((o) => o.path)));
+    const jobs = data.map(({ result, ...j }) => ({
+      ...j,
+      outputs: outputsOf(result).map((o) => ({ ...o, url: signed[o.path] ?? null })),
+    }));
+    return NextResponse.json({ jobs });
+  });
+}
+
+export function POST(request: Request) {
+  return handle(async () => {
+    const user = await requireUser();
+    const parsed = jobInput.safeParse(await request.json());
+    if (!parsed.success) throw new HttpError("Revisá los datos del pedido.", 400);
+    const input = parsed.data;
+    const admin = createAdminClient();
+
+    let job: ResolvedJob;
+    if (input.kind === "iterate") {
+      const { data: parent } = await admin
+        .from("jobs")
+        .select("id, user_id, kind, status, title, params")
+        .eq("id", input.parentJobId)
+        .maybeSingle();
+      if (!parent || parent.user_id !== user.id || parent.kind !== "edit") throw new HttpError("No encontramos esa edición.", 404);
+      if (parent.status !== "done") throw new HttpError("Esperá a que termine la edición antes de pedir cambios.", 409);
+      job = iterationJob(parent, input.changes);
+    } else {
+      if (input.kind === "edit") {
+        const paths = [input.rawPath, ...input.resources.map((r) => r.path)];
+        if (!paths.every((p) => ownsPath(user.id, p))) throw new HttpError("Archivo inválido.", 403);
+      }
+      try {
+        job = resolveJob(input);
+      } catch (err) {
+        throw new HttpError((err as Error).message, 400);
+      }
+    }
+
+    const { data, error } = await admin.rpc("create_job", {
+      p_user_id: user.id,
+      p_kind: job.kind,
+      p_title: job.title,
+      p_params: job.params,
+      p_cost: job.cost,
+      p_parent_job_id: job.parentJobId ?? null,
+    });
+    if (error) {
+      if (error.message.includes("INSUFFICIENT_CREDITS")) {
+        throw new HttpError(`Te faltan créditos: este pedido cuesta ${job.cost}.`, 402);
+      }
+      throw error;
+    }
+    return NextResponse.json({ job: data });
+  });
+}

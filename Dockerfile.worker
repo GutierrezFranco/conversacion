@@ -1,0 +1,25 @@
+# Worker de Edición Simple: procesa ediciones, imágenes y videos.
+# Deploy sugerido: Railway, Fly.io o Render (como "background worker", sin puerto público).
+FROM node:22-slim
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ffmpeg fontconfig ca-certificates curl \
+  && rm -rf /var/lib/apt/lists/*
+
+# Tipografías que usan los estilos de subtítulos (lib/styles.ts).
+ENV FONTS_DIR=/usr/share/fonts/edicion
+RUN mkdir -p $FONTS_DIR && cd $FONTS_DIR \
+  && for f in Poppins-Medium Poppins-SemiBold Poppins-Bold Poppins-ExtraBold; do \
+       curl -fsSLo $f.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/poppins/$f.ttf; \
+     done \
+  && curl -fsSLo Anton-Regular.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/anton/Anton-Regular.ttf \
+  && fc-cache -f
+
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev && npm install --no-save tsx
+COPY lib ./lib
+COPY worker ./worker
+COPY tsconfig.json ./
+
+CMD ["npx", "tsx", "worker/index.ts"]
