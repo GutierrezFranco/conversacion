@@ -61,6 +61,11 @@ export default async function AdminPage() {
         <p className="muted" style={{ margin: 0 }}>
           Solo lo ven los mails de ADMIN_EMAILS.
         </p>
+        {/* Vercel completa estas variables en cada publicación: sirve para saber si ya está andando el último cambio. */}
+        <p className="muted small" style={{ margin: "4px 0 0" }}>
+          Versión publicada: <b>{process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "local"}</b>
+          {process.env.VERCEL_GIT_COMMIT_MESSAGE ? ` · ${process.env.VERCEL_GIT_COMMIT_MESSAGE.split("\n")[0]}` : ""}
+        </p>
       </div>
 
       <div className="grid grid-4">
