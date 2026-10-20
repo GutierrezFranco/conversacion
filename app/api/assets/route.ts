@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { handle, HttpError, requireUser, signPaths } from "@/lib/api";
+import { fileSize, removeFiles } from "@/lib/files";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { ASSET_MAX_BYTES, ASSET_QUOTA_BYTES, assetKind } from "@/lib/storage-rules";
@@ -37,11 +38,10 @@ export function POST(request: Request) {
 
     const admin = createAdminClient();
     // El tamaño lo leemos de Storage: no confiamos en el que manda el navegador.
-    const { data: info, error: infoError } = await admin.storage.from("uploads").info(path);
-    if (infoError || !info) throw new HttpError("No encontramos el archivo subido.", 404);
-    const size = info.size ?? 0;
+    const size = await fileSize("uploads", path);
+    if (size === null) throw new HttpError("No encontramos el archivo subido.", 404);
     if (size > ASSET_MAX_BYTES) {
-      await admin.storage.from("uploads").remove([path]);
+      await removeFiles("uploads", [path]);
       throw new HttpError("El archivo es demasiado pesado.", 400);
     }
 

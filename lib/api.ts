@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getUser } from "./supabase/server";
+import { signedReadUrls, type Bucket } from "./files";
 import { createAdminClient } from "./supabase/admin";
 
 export function jsonError(message: string, status = 400) {
@@ -32,10 +33,6 @@ export async function getBalance(userId: string): Promise<number> {
 }
 
 // Firma URLs de lectura para los archivos guardados en Storage (válidas por 1 hora).
-export async function signPaths(bucket: string, paths: string[]): Promise<Record<string, string>> {
-  if (paths.length === 0) return {};
-  const { data } = await createAdminClient().storage.from(bucket).createSignedUrls(paths, 3600);
-  const out: Record<string, string> = {};
-  for (const item of data ?? []) if (item.path && item.signedUrl) out[item.path] = item.signedUrl;
-  return out;
+export function signPaths(bucket: Bucket, paths: string[]): Promise<Record<string, string>> {
+  return signedReadUrls(bucket, paths, 3600);
 }

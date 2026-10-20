@@ -4,6 +4,7 @@
 
 import { fal, ApiError, ValidationError } from "@fal-ai/client";
 import { env } from "../lib/env";
+import { expiredFiles, removeFiles } from "../lib/files";
 import { OUTPUT_RETENTION_DAYS, RAW_RETENTION_DAYS } from "../lib/storage-rules";
 import { runEdit } from "./edit";
 import { runImage, runVideo } from "./generate";
@@ -11,7 +12,7 @@ import { runReference } from "./reference";
 import { db, type Job } from "./storage";
 
 env("ANTHROPIC_API_KEY");
-env("ELEVENLABS_API_KEY");
+if (process.env.TRANSCRIBER !== "whisper") env("ELEVENLABS_API_KEY");
 // fal solo hace falta si prendiste los generadores de imágenes y videos con IA.
 if (process.env.FAL_KEY) fal.config({ credentials: process.env.FAL_KEY });
 
@@ -88,13 +89,11 @@ async function cleanupOldFiles() {
     { bucket: "uploads", folder: "raw", days: RAW_RETENTION_DAYS },
     { bucket: "uploads", folder: "refs", days: RAW_RETENTION_DAYS },
     { bucket: "outputs", folder: "", days: OUTPUT_RETENTION_DAYS },
-  ];
+  ] as const;
   for (const r of rules) {
-    const { data, error } = await db.rpc("expired_objects", { p_bucket: r.bucket, p_folder: r.folder, p_days: r.days });
-    if (error) throw error;
-    const names = (data ?? []) as string[];
+    const names = await expiredFiles(r.bucket, r.folder, r.days);
     if (names.length) {
-      await db.storage.from(r.bucket).remove(names);
+      await removeFiles(r.bucket, names);
       console.log(`Limpieza: ${names.length} archivos viejos en ${r.bucket}/${r.folder || "*"}`);
     }
   }

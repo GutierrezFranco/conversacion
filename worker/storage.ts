@@ -1,7 +1,7 @@
 import { createWriteStream } from "node:fs";
-import { readFile } from "node:fs/promises";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
+import { signedReadUrls, uploadFile, type Bucket } from "../lib/files";
 import { createAdminClient } from "../lib/supabase/admin";
 
 export type JobResult = { outputs: { path: string; type: "video" | "image" }[] };
@@ -18,10 +18,10 @@ export type Job = {
 
 export const db = createAdminClient();
 
-export async function download(bucket: string, path: string, dest: string) {
-  const { data, error } = await db.storage.from(bucket).createSignedUrl(path, 600);
-  if (error || !data) throw new Error(`No se pudo leer ${path}`);
-  await downloadUrl(data.signedUrl, dest);
+export async function download(bucket: Bucket, path: string, dest: string) {
+  const url = (await signedReadUrls(bucket, [path], 600))[path];
+  if (!url) throw new Error(`No se pudo leer ${path}`);
+  await downloadUrl(url, dest);
 }
 
 export async function downloadUrl(url: string, dest: string) {
@@ -32,7 +32,6 @@ export async function downloadUrl(url: string, dest: string) {
 
 export async function uploadOutput(job: Job, file: string, ext: string, contentType: string, suffix = ""): Promise<string> {
   const path = `${job.user_id}/${job.id}${suffix}.${ext}`;
-  const { error } = await db.storage.from("outputs").upload(path, await readFile(file), { contentType, upsert: true });
-  if (error) throw new Error(`No se pudo guardar el resultado: ${error.message}`);
+  await uploadFile("outputs", path, file, contentType);
   return path;
 }

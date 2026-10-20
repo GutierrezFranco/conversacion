@@ -26,10 +26,6 @@ export async function probe(file: string): Promise<{ duration: number; width: nu
   };
 }
 
-export async function extractAudio(input: string, output: string) {
-  await run("ffmpeg", ["-y", "-i", input, "-vn", "-ac", "1", "-ar", "16000", "-b:a", "64k", output]);
-}
-
 export type RenderOverlay = { file: string; kind: "image" | "video"; start: number; end: number; layout: "full" | "top" };
 
 const W = 1080;

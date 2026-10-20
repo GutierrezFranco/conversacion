@@ -16,12 +16,12 @@ La persona sube su video crudo, elige un estilo y la app lo corta (saca errores,
 ## Cómo funciona
 
 ```
-Navegador ──► Next.js (Vercel) ──► Supabase (login, base de datos, archivos)
+Navegador ──► Next.js (Vercel/Netlify) ──► Supabase (login, base de datos) + Supabase Storage o Cloudflare R2 (archivos)
                  │                         ▲
                  │ Mercado Pago            │ cola de trabajos
                  ▼                         │
            webhook de pago          Worker (Railway / Fly)
-                                     ├─ ElevenLabs Scribe: transcripción palabra por palabra
+                                     ├─ ElevenLabs Scribe o Whisper: transcripción palabra por palabra
                                      ├─ Claude: plan de edición (qué se corta, qué se destaca, dónde va cada recurso y plantilla)
                                      ├─ ffmpeg: render 1080×1920 con cortes, zooms, recursos, música, plantillas y subtítulos
                                      ├─ HyperFrames (premium): subtítulos y plantillas animados encima del video cortado
@@ -77,6 +77,30 @@ Para que Mercado Pago llegue a tu webhook en local, exponé el puerto con un tú
 - **Web:** importá el repo en [Vercel](https://vercel.com) y cargá las variables de entorno.
 - **Worker:** desplegá `Dockerfile.worker` como *background worker* en Railway, Fly.io o Render, con las mismas variables. Trae ffmpeg, Chromium (para el motor premium) y las tipografías. Con `WORKER_CONCURRENCY` (2 por defecto) elegís cuántos trabajos procesa a la vez; para el motor premium conviene una máquina de 4 vCPU y 4 GB de RAM.
 - En local, el motor premium necesita Chrome: si no lo encuentra, corré `npx hyperframes browser ensure` o poné la ruta en `HYPERFRAMES_BROWSER_PATH`.
+
+## Versión sin costos fijos
+
+Para arrancar sin pagar nada por mes (solo Claude por cada video, que sale del precio que cobrás):
+
+| Parte | Gratis | Cómo |
+|---|---|---|
+| Web | Netlify (plan gratis) o Vercel Hobby mientras no cobres | Importar el repo y cargar las variables. Vercel Hobby no permite uso comercial. |
+| Base y login | Supabase (plan gratis) | Igual que arriba. Con el worker andando, el proyecto no se pausa por inactividad. |
+| Videos y recursos | Cloudflare R2 (10 GB gratis, sin cargo por descargas) | `STORAGE_PROVIDER=r2` y las variables `R2_*`. El plan gratis de Supabase no acepta archivos de más de 50 MB. |
+| Transcripción | Whisper dentro del worker | `TRANSCRIBER=whisper`. Ya viene compilado en `Dockerfile.worker` con el modelo `small`. |
+| Mails del login | Resend (unos 3.000 por mes gratis) | Supabase → Authentication → SMTP. El envío por defecto de Supabase tiene un límite muy bajo por hora. |
+| Worker | Una notebook que no uses, o un servidor gratis/barato | Ver abajo. |
+
+**Cloudflare R2:** creá un bucket (por ejemplo `edicion-simple`); en **R2 → Manage API tokens** creá un token con permiso *Object Read & Write* para ese bucket y copiá *Access Key ID*, *Secret Access Key* y tu *Account ID*. En el bucket, **Settings → CORS policy**, permití que el navegador suba archivos:
+
+```json
+[{ "AllowedOrigins": ["https://tu-dominio"], "AllowedMethods": ["PUT", "GET"], "AllowedHeaders": ["content-type"], "MaxAgeSeconds": 3600 }]
+```
+
+**Dónde correr el worker:**
+- **Una notebook que no uses:** instalá Docker, cloná el repo y corré `docker build -f Dockerfile.worker -t edicion-worker . && docker run -d --restart=always --env-file .env edicion-worker`. Dejala enchufada y con la suspensión desactivada. Con 4 núcleos y 8 GB de RAM anda bien; con menos, poné `WORKER_CONCURRENCY=1`. Si se apaga, los videos esperan en la cola y se editan cuando vuelve.
+- **Un VPS chico** (por ejemplo Hetzner, desde unos US$5 a 8 por mes con 2 a 4 núcleos): siempre prendido, mismos comandos.
+- **Oracle Cloud Always Free:** un servidor ARM de 4 núcleos gratis para siempre; el registro pide tarjeta y a veces no hay cupo.
 
 ## Salir a probar con alumnos
 

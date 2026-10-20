@@ -1,12 +1,11 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
-import { env } from "../lib/env";
 import { FORMATS, getFormat } from "../lib/formats";
 import { getStyle, isPremium, type EditStyle } from "../lib/styles";
 import { getTemplate, type TemplateInstance } from "../lib/templates";
-import { extractAudio, fontsDir, probe, render, type RenderOverlay } from "./media";
+import { fontsDir, probe, render, type RenderOverlay } from "./media";
+import { transcribe } from "./transcribe";
 import { planEdit, type EditPlan, type PlanResource, type PlanTemplate } from "./plan";
 import { renderWithHyperframes } from "./hyperframes";
 import { placeTemplates, templateEvents } from "./templates";
@@ -32,23 +31,6 @@ const MUSIC_VOLUME = { baja: 0.12, media: 0.2, alta: 0.32 } as const;
 
 type EditResult = JobResult & { words: Word[]; plan: EditPlan; duration: number; summary: string };
 
-// Transcripción palabra por palabra con ElevenLabs Scribe.
-// No limpiamos muletillas acá: Claude necesita verlas con sus tiempos para cortarlas.
-async function transcribe(audioFile: string): Promise<Word[]> {
-  const client = new ElevenLabsClient({ apiKey: env("ELEVENLABS_API_KEY") });
-  const res = await client.speechToText.convert({
-    file: new Blob([await readFile(audioFile)], { type: "audio/mpeg" }),
-    modelId: "scribe_v2",
-    languageCode: "spa",
-    timestampsGranularity: "word",
-    diarize: false,
-    tagAudioEvents: false,
-  });
-  return res.words
-    .filter((w) => w.type === "word" && w.start !== undefined && w.end !== undefined)
-    .map((w, i) => ({ i, text: w.text.trim(), start: w.start!, end: w.end! }));
-}
-
 export async function runEdit(job: Job, parent: Job | null): Promise<EditResult> {
   const params = job.params as EditParams;
   const style = params.style ?? getStyle(params.styleId);
@@ -69,9 +51,7 @@ export async function runEdit(job: Job, parent: Job | null): Promise<EditResult>
     if (parentResult?.words?.length) {
       words = parentResult.words;
     } else {
-      const audio = join(dir, "audio.mp3");
-      await extractAudio(rawFile, audio);
-      words = await transcribe(audio);
+      words = await transcribe(rawFile);
     }
     if (words.length < 3) throw new Error("No escuchamos a nadie hablando en el video.");
 

@@ -14,17 +14,19 @@ export async function api<T>(path: string, body?: unknown, method?: "DELETE"): P
   return data as T;
 }
 
-// Sube un archivo directo a Supabase Storage con una URL firmada, informando el progreso.
+// Sube un archivo directo al almacenamiento (Supabase o R2) con una URL firmada, informando el progreso.
 export async function uploadFile(file: File, purpose: "raw" | "asset" | "ref", onProgress?: (pct: number) => void): Promise<string> {
-  const { path, token } = await api<{ path: string; token: string }>("/api/uploads", { filename: file.name, size: file.size, purpose });
-  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/upload/sign/uploads/${path}?token=${encodeURIComponent(token)}`;
+  const { path, url, headers } = await api<{ path: string; url: string; headers: Record<string, string> }>("/api/uploads", {
+    filename: file.name,
+    size: file.size,
+    purpose,
+  });
 
   await new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", url);
-    xhr.setRequestHeader("apikey", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+    for (const [k, v] of Object.entries(headers)) xhr.setRequestHeader(k, v);
     xhr.setRequestHeader("content-type", file.type || "application/octet-stream");
-    xhr.setRequestHeader("x-upsert", "false");
     xhr.upload.onprogress = (e) => e.lengthComputable && onProgress?.(Math.round((e.loaded / e.total) * 100));
     xhr.onload = () => (xhr.status < 300 ? resolve() : reject(new Error("No se pudo subir el archivo.")));
     xhr.onerror = () => reject(new Error("Se cortó la conexión mientras subía el archivo."));

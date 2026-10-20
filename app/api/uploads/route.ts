@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { handle, HttpError, requireUser } from "@/lib/api";
+import { signedUploadUrl } from "@/lib/files";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ASSET_EXT, AUDIO_EXT, ASSET_MAX_BYTES, ASSET_QUOTA_BYTES, RAW_EXT, RAW_MAX_BYTES, REF_MAX_BYTES, formatBytes } from "@/lib/storage-rules";
 
@@ -41,8 +42,7 @@ export function POST(request: Request) {
     const folder = { raw: "raw", asset: "assets", ref: "refs" }[purpose];
     const path = `${user.id}/${folder}/${randomUUID()}.${ext}`;
 
-    const { data, error } = await admin.storage.from("uploads").createSignedUploadUrl(path);
-    if (error) throw error;
-    return NextResponse.json({ path, token: data.token });
+    const upload = await signedUploadUrl("uploads", path);
+    return NextResponse.json({ path, ...upload });
   });
 }
