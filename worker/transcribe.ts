@@ -45,7 +45,7 @@ async function transcribeWhisper(input: string): Promise<Word[]> {
     await run("ffmpeg", ["-y", "-i", input, "-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", wav]);
     const out = join(dir, "out");
     await run(process.env.WHISPER_BIN ?? "whisper-cli", [
-      "-m", process.env.WHISPER_MODEL ?? "/opt/whisper/ggml-small.bin",
+      "-m", process.env.WHISPER_MODEL ?? "/opt/whisper/ggml-small-q5_1.bin",
       "-f", wav,
       "-l", "es",
       // -ml 1 + -sow: un segmento por palabra, con su tiempo de inicio y fin.

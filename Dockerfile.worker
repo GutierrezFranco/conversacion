@@ -4,11 +4,15 @@
 # ---- Whisper (transcripción gratis, opcional: TRANSCRIBER=whisper) ----
 FROM debian:bookworm-slim AS whisper
 ARG WHISPER_VERSION=v1.9.5
-# small: buen español con un tamaño razonable (~470 MB). base es más liviano y menos preciso.
-ARG WHISPER_MODEL=small
+# small-q5_1: el modelo small comprimido; casi la misma precisión en español con un tercio de la memoria,
+# para que entre en servidores chicos. base es más liviano y menos preciso.
+ARG WHISPER_MODEL=small-q5_1
+# Sin GGML_NATIVE el binario no depende del procesador de la máquina que lo compila (en Railway o Fly
+# se compila en una y corre en otra). AVX2 lo tiene cualquier servidor de los últimos 10 años.
 RUN apt-get update && apt-get install -y --no-install-recommends git cmake build-essential ca-certificates curl \
   && git clone --depth 1 --branch $WHISPER_VERSION https://github.com/ggml-org/whisper.cpp /src \
   && cmake -S /src -B /src/build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DWHISPER_BUILD_TESTS=OFF \
+     -DGGML_NATIVE=OFF -DGGML_AVX=ON -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON \
   && cmake --build /src/build -j --target whisper-cli \
   && mkdir -p /opt/whisper && cp /src/build/bin/whisper-cli /opt/whisper/ \
   && curl -fsSL -o /opt/whisper/ggml-$WHISPER_MODEL.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-$WHISPER_MODEL.bin
@@ -26,7 +30,7 @@ ENV HYPERFRAMES_BROWSER_PATH=/usr/bin/chromium \
 
 COPY --from=whisper /opt/whisper /opt/whisper
 ENV WHISPER_BIN=/opt/whisper/whisper-cli \
-    WHISPER_MODEL=/opt/whisper/ggml-small.bin
+    WHISPER_MODEL=/opt/whisper/ggml-small-q5_1.bin
 
 # Tipografías que usan los estilos y las referencias. Tiene que coincidir con lib/fonts.ts.
 ENV FONTS_DIR=/usr/share/fonts/edicion

@@ -9,7 +9,10 @@ export function run(cmd: string, args: string[]): Promise<string> {
     p.stdout.on("data", (d) => (out += d));
     p.stderr.on("data", (d) => (err = (err + d).slice(-8000)));
     p.on("error", reject);
-    p.on("close", (code) => (code === 0 ? resolve(out) : reject(new Error(`${cmd} terminó con código ${code}:\n${err}`))));
+    // Si el sistema mata el proceso (por ejemplo, por falta de memoria) no hay código sino una señal.
+    p.on("close", (code, signal) =>
+      code === 0 ? resolve(out) : reject(new Error(`${cmd} terminó con ${signal ? `la señal ${signal}` : `código ${code}`}:\n${err}`)),
+    );
   });
 }
 
