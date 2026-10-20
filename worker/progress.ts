@@ -11,7 +11,9 @@ export async function reportProgress(jobId: string, step: ProgressStep, pct: num
   pct = Math.max(0, Math.min(99, Math.round(pct)));
   const prev = last.get(jobId);
   // Cambio de paso siempre; dentro del mismo paso, como mucho cada 3 segundos para no saturar la base.
-  if (prev && prev.step === step && (pct <= prev.pct || Date.now() - prev.at < 3000)) return;
+  // La barra nunca retrocede (un aviso atrasado de un paso anterior no la mueve para atrás).
+  if (prev && pct < prev.pct) return;
+  if (prev && prev.step === step && (pct === prev.pct || Date.now() - prev.at < 3000)) return;
   last.set(jobId, { step, pct, at: Date.now() });
   const { error } = await db
     .from("jobs")
@@ -28,4 +30,16 @@ export function forgetProgress(jobId: string) {
 // Pasa un avance de 0 a 1 dentro de un tramo de la barra (por ejemplo de 50 % a 95 %).
 export function stretch(from: number, to: number, fraction: number) {
   return from + (to - from) * Math.max(0, Math.min(1, fraction));
+}
+
+// Para pasos que no informan avance (la IA pensando, la subida): la barra se acerca de a poco a "to"
+// sin llegar nunca, para que se vea que sigue trabajando. Devuelve la función para cortarlo.
+export function creep(jobId: string, step: ProgressStep, from: number, to: number, expectedSeconds: number): () => void {
+  const started = Date.now();
+  const timer = setInterval(() => {
+    const t = (Date.now() - started) / 1000 / expectedSeconds;
+    // Llega a ~63 % del tramo en el tiempo esperado y después sigue cada vez más lento.
+    void reportProgress(jobId, step, from + (to - from) * (1 - Math.exp(-t))).catch(() => {});
+  }, 3000);
+  return () => clearInterval(timer);
 }

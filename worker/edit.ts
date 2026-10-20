@@ -11,7 +11,7 @@ import { renderWithHyperframes } from "./hyperframes";
 import { placeTemplates, templateEvents } from "./templates";
 import { assTime, buildCues, buildSegments, mapWordRange, outputDuration, toAss, type Word } from "./timeline";
 import { download, uploadOutput, type Job, type JobResult } from "./storage";
-import { reportProgress, stretch, type ProgressStep } from "./progress";
+import { creep, reportProgress, stretch, type ProgressStep } from "./progress";
 
 const MAX_RAW_SECONDS = 5 * 60;
 
@@ -43,8 +43,8 @@ export async function runEdit(job: Job, parent: Job | null): Promise<EditResult>
   try {
     const rawFile = join(dir, "raw");
     const progress = (step: ProgressStep, pct: number) => reportProgress(job.id, step, pct).catch(() => {});
-    await progress("descarga", 2);
-    await download("uploads", params.rawPath, rawFile);
+    await progress("descarga", 1);
+    await download("uploads", params.rawPath, rawFile, (f) => void progress("descarga", stretch(1, 5, f)));
     const info = await probe(rawFile);
     if (!info.hasAudio) throw new Error("El video no tiene audio. Necesitamos tu voz para editarlo.");
     if (info.duration > MAX_RAW_SECONDS) throw new Error("El crudo dura más de 5 minutos. Cortalo un poco y volvé a subirlo.");
@@ -67,6 +67,7 @@ export async function runEdit(job: Job, parent: Job | null): Promise<EditResult>
       return { index, name: def?.name ?? t.templateId, text: Object.values(t.values).filter(Boolean).join(" · "), hint: def?.hint ?? "", note: t.note };
     });
     await progress("plan", 38);
+    const stopCreep = creep(job.id, "plan", 38, 49, 60);
     const plan = await planEdit({
       words,
       style,
@@ -78,7 +79,7 @@ export async function runEdit(job: Job, parent: Job | null): Promise<EditResult>
         parentResult?.plan && (params.changes || params.mode === "fix")
           ? { plan: parentResult.plan, changes: params.changes ?? "", mode: params.mode ?? "change" }
           : undefined,
-    });
+    }).finally(stopCreep);
 
     const silences = await detectSilences(rawFile).catch(() => []);
     const segments = buildSegments(words, plan.keep, info.duration, silences);
@@ -141,6 +142,7 @@ export async function runEdit(job: Job, parent: Job | null): Promise<EditResult>
       const cutFile = join(dir, "cut.mp4");
       await render({ input: rawFile, output: cutFile, segments, overlays, music, keyframeEvery: 30 }, (f) => void progress("render", stretch(50, 70, f)));
       await progress("render", 72);
+      const stopHfCreep = creep(job.id, "render", 72, 94, 120);
       try {
         await renderWithHyperframes({ dir, video: cutFile, output: outFile, duration, cues, style, templates: placed, fontsDir: fontsDir() });
       } catch (err) {
@@ -153,6 +155,8 @@ export async function runEdit(job: Job, parent: Job | null): Promise<EditResult>
           { input: cutFile, output: outFile, segments: [{ start: 0, end: duration, zoom: false, outStart: 0 }], overlays: [], assFile: fallbackAss, fontsDir: fontsDir() },
           (f) => void progress("render", stretch(72, 95, f)),
         );
+      } finally {
+        stopHfCreep();
       }
     } else {
       await render({ input: rawFile, output: outFile, segments, overlays, assFile, fontsDir: fontsDir(), music }, (f) =>
@@ -161,7 +165,8 @@ export async function runEdit(job: Job, parent: Job | null): Promise<EditResult>
     }
 
     await progress("subida", 96);
-    const path = await uploadOutput(job, outFile, "mp4", "video/mp4");
+    const stopUploadCreep = creep(job.id, "subida", 96, 99, 15);
+    const path = await uploadOutput(job, outFile, "mp4", "video/mp4").finally(stopUploadCreep);
     return {
       outputs: [{ path, type: "video" }],
       words,
