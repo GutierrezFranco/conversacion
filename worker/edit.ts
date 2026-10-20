@@ -11,6 +11,7 @@ import { renderWithHyperframes } from "./hyperframes";
 import { placeTemplates, templateEvents } from "./templates";
 import { assTime, buildCues, buildSegments, mapWordRange, outputDuration, toAss, type Word } from "./timeline";
 import { download, uploadOutput, type Job, type JobResult } from "./storage";
+import { reportProgress, stretch, type ProgressStep } from "./progress";
 
 const MAX_RAW_SECONDS = 5 * 60;
 
@@ -40,6 +41,8 @@ export async function runEdit(job: Job, parent: Job | null): Promise<EditResult>
   const dir = await mkdtemp(join(tmpdir(), "edicion-"));
   try {
     const rawFile = join(dir, "raw");
+    const progress = (step: ProgressStep, pct: number) => reportProgress(job.id, step, pct).catch(() => {});
+    await progress("descarga", 2);
     await download("uploads", params.rawPath, rawFile);
     const info = await probe(rawFile);
     if (!info.hasAudio) throw new Error("El video no tiene audio. Necesitamos tu voz para editarlo.");
@@ -51,7 +54,8 @@ export async function runEdit(job: Job, parent: Job | null): Promise<EditResult>
     if (parentResult?.words?.length) {
       words = parentResult.words;
     } else {
-      words = await transcribe(rawFile);
+      await progress("escucha", 5);
+      words = await transcribe(rawFile, (f) => void progress("escucha", stretch(5, 35, f)));
     }
     if (words.length < 3) throw new Error("No escuchamos a nadie hablando en el video.");
 
@@ -61,6 +65,7 @@ export async function runEdit(job: Job, parent: Job | null): Promise<EditResult>
       const def = getTemplate(t.templateId);
       return { index, name: def?.name ?? t.templateId, text: Object.values(t.values).filter(Boolean).join(" · "), hint: def?.hint ?? "", note: t.note };
     });
+    await progress("plan", 38);
     const plan = await planEdit({
       words,
       style,
@@ -126,14 +131,19 @@ export async function runEdit(job: Job, parent: Job | null): Promise<EditResult>
     }
 
     const outFile = join(dir, "out.mp4");
+    await progress("render", 50);
     if (premium) {
       const cutFile = join(dir, "cut.mp4");
-      await render({ input: rawFile, output: cutFile, segments, overlays, music });
+      await render({ input: rawFile, output: cutFile, segments, overlays, music }, (f) => void progress("render", stretch(50, 70, f)));
+      await progress("render", 72);
       await renderWithHyperframes({ dir, video: cutFile, output: outFile, duration, cues, style, templates: placed, fontsDir: fontsDir() });
     } else {
-      await render({ input: rawFile, output: outFile, segments, overlays, assFile, fontsDir: fontsDir(), music });
+      await render({ input: rawFile, output: outFile, segments, overlays, assFile, fontsDir: fontsDir(), music }, (f) =>
+        void progress("render", stretch(50, 95, f)),
+      );
     }
 
+    await progress("subida", 96);
     const path = await uploadOutput(job, outFile, "mp4", "video/mp4");
     return {
       outputs: [{ path, type: "video" }],

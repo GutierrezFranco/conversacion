@@ -11,8 +11,8 @@ import { env } from "../lib/env";
 import { run } from "./media";
 import type { Word } from "./timeline";
 
-export async function transcribe(videoOrAudio: string): Promise<Word[]> {
-  return process.env.TRANSCRIBER === "whisper" ? transcribeWhisper(videoOrAudio) : transcribeElevenLabs(videoOrAudio);
+export async function transcribe(videoOrAudio: string, onProgress?: (fraction: number) => void): Promise<Word[]> {
+  return process.env.TRANSCRIBER === "whisper" ? transcribeWhisper(videoOrAudio, onProgress) : transcribeElevenLabs(videoOrAudio);
 }
 
 async function transcribeElevenLabs(input: string): Promise<Word[]> {
@@ -37,7 +37,7 @@ async function transcribeElevenLabs(input: string): Promise<Word[]> {
   }
 }
 
-async function transcribeWhisper(input: string): Promise<Word[]> {
+async function transcribeWhisper(input: string, onProgress?: (fraction: number) => void): Promise<Word[]> {
   const dir = await mkdtemp(join(tmpdir(), "whisper-"));
   try {
     // whisper.cpp necesita WAV de 16 kHz mono.
@@ -51,9 +51,13 @@ async function transcribeWhisper(input: string): Promise<Word[]> {
       // -ml 1 + -sow: un segmento por palabra, con su tiempo de inicio y fin.
       "-ml", "1", "-sow",
       "-oj", "-of", out,
-      "-np",
+      // -pp escribe "progress = 40%" a medida que avanza.
+      "-pp",
       "-t", String(process.env.WHISPER_THREADS ?? 4),
-    ]);
+    ], (chunk) => {
+      const m = [...chunk.matchAll(/progress\s*=\s*(\d+)%/g)].pop();
+      if (m) onProgress?.(Number(m[1]) / 100);
+    });
     return parseWhisperJson(JSON.parse(await readFile(`${out}.json`, "utf8")));
   } finally {
     await rm(dir, { recursive: true, force: true });

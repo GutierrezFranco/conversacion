@@ -9,6 +9,7 @@ import { OUTPUT_RETENTION_DAYS, RAW_RETENTION_DAYS } from "../lib/storage-rules"
 import { runEdit } from "./edit";
 import { runImage, runVideo } from "./generate";
 import { runReference } from "./reference";
+import { forgetProgress } from "./progress";
 import { db, type Job } from "./storage";
 
 env("ANTHROPIC_API_KEY");
@@ -58,6 +59,8 @@ async function handleJob(job: Job) {
   } catch (err) {
     console.error(`[${job.id}] falló`, err);
     await db.rpc("fail_job", { p_job_id: job.id, p_error: userMessage(err) });
+  } finally {
+    forgetProgress(job.id);
   }
 }
 
