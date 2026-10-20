@@ -12,7 +12,44 @@ import { run } from "./media";
 import type { Word } from "./timeline";
 
 export async function transcribe(videoOrAudio: string, onProgress?: (fraction: number) => void): Promise<Word[]> {
-  return process.env.TRANSCRIBER === "whisper" ? transcribeWhisper(videoOrAudio, onProgress) : transcribeElevenLabs(videoOrAudio);
+  const engine = process.env.TRANSCRIBER;
+  if (engine === "parakeet") {
+    try {
+      return await transcribeParakeet(videoOrAudio, onProgress);
+    } catch (err) {
+      // Parakeet necesita más memoria que Whisper: si no entra, seguimos con Whisper en vez de fallar.
+      console.error("Parakeet falló, sigo con Whisper:", err instanceof Error ? err.message.split("\n")[0] : err);
+      return transcribeWhisper(videoOrAudio, onProgress);
+    }
+  }
+  return engine === "whisper" ? transcribeWhisper(videoOrAudio, onProgress) : transcribeElevenLabs(videoOrAudio);
+}
+
+// Parakeet (NVIDIA, gratis, corre en el worker) a través de HyperFrames. Entiende mejor que Whisper chico
+// el español hablado y las trabas. El modelo se instala al armar la imagen (Dockerfile.worker).
+async function transcribeParakeet(input: string, onProgress?: (fraction: number) => void): Promise<Word[]> {
+  const dir = await mkdtemp(join(tmpdir(), "parakeet-"));
+  try {
+    const wav = join(dir, "audio.wav");
+    await run("ffmpeg", ["-y", "-i", input, "-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", wav]);
+    const bin = join(process.cwd(), "node_modules", ".bin", "hyperframes");
+    await run(bin, ["transcribe", wav, "--engine", "parakeet", "-l", "es", "--json", "-d", dir], (chunk) => {
+      // Con --json informa el avance en líneas JSON por stderr.
+      const m = [...chunk.matchAll(/"(?:progress|percent)"\s*:\s*([\d.]+)/g)].pop();
+      if (m) onProgress?.(Number(m[1]) > 1 ? Number(m[1]) / 100 : Number(m[1]));
+    });
+    const entries = JSON.parse(await readFile(join(dir, "transcript.json"), "utf8")) as { text: string; start: number; end: number }[];
+    return parseParakeetJson(entries);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
+export function parseParakeetJson(entries: { text: string; start: number; end: number }[]): Word[] {
+  return entries
+    .map((e) => ({ text: String(e.text ?? "").trim(), start: Number(e.start), end: Number(e.end) }))
+    .filter((e) => e.text && Number.isFinite(e.start) && Number.isFinite(e.end))
+    .map((e, i) => ({ i, ...e }));
 }
 
 async function transcribeElevenLabs(input: string): Promise<Word[]> {

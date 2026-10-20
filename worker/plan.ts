@@ -40,6 +40,11 @@ export const editPlanSchema = z.object({
   labels: z
     .array(z.object({ text: z.string().describe("1 a 3 palabras, en mayúsculas"), fromWord: z.number().int(), toWord: z.number().int() }))
     .describe("Etiquetas cortas que escribís vos (por ejemplo PASO 1). Solo si el formato lo pide; si no, dejalo vacío."),
+  fixes: z
+    .array(z.object({ word: z.number().int(), text: z.string() }))
+    .describe(
+      "Correcciones de cómo se escriben palabras en los subtítulos: voseo con tilde (ponés, sabés, cobrás, comentá), nombres propios y marcas (Claude Code, WhatsApp, iPhone) y palabras que la transcripción entendió mal por el contexto. Solo las que quedan en keep. Mantené la puntuación pegada a la palabra.",
+    ),
   summary: z.string().describe("Dos o tres oraciones, en español rioplatense, contándole al usuario qué se hizo"),
 });
 
@@ -78,6 +83,7 @@ Además:
 - zoom: usalo en fragmentos de énfasis, alternando para dar ritmo. No en todos.
 - overlays: mostrá cada recurso justo cuando se lo menciona, según la nota del usuario. Solo usá palabras que hayas dejado en keep. Si una nota no tiene relación con lo que se dice, ubicá el recurso donde mejor encaje.
 - templates: son carteles gráficos (cajita de preguntas, título gancho, precio, etiqueta, llamado a la acción). Ubicá cada una según su indicación y la nota del usuario. Que no se superpongan entre sí ni con un recurso en modo "top" al mismo tiempo.
+- fixes: la transcripción es automática y se equivoca. Corregí lo que se va a leer en los subtítulos: el voseo rioplatense con tilde ("pones" → "ponés", "comenta" → "comentá" cuando es una orden), nombres propios y palabras mal entendidas que se deducen por el contexto ("te la pasa" → "te la paso" si habla él).
 - Seguí el estilo elegido y las indicaciones del usuario. Si piden algo imposible con estas herramientas, hacé lo más cercano y aclaralo en summary.`;
 
 const PAUSE_MARK = 0.5;

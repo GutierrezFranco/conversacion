@@ -47,6 +47,8 @@ RUN mkdir -p $FONTS_DIR && cd $FONTS_DIR \
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm install --no-save tsx
+# Parakeet (TRANSCRIBER=parakeet): modelo de voz de NVIDIA que corre acá mismo, gratis. Pesa ~700 MB.
+RUN npx hyperframes models install parakeet
 COPY lib ./lib
 COPY worker ./worker
 COPY tsconfig.json ./
