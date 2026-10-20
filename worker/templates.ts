@@ -10,6 +10,7 @@ const ACCENT = "&H1A6AFF&"; // #FF6A1A
 const WHITE = "&HFFFFFF&";
 const DARK = "&H18110F&"; // #0F1118
 const CARD = "&H261E1A&"; // #1A1E26
+const GRAY = "&H857A7A&"; // #7A7A85
 
 // Ancho promedio de un carácter en Poppins, relativo al tamaño de letra en ASS
 // (medido renderizando; con un poco de margen para palabras con letras anchas).
@@ -64,6 +65,11 @@ function label(ctx: Ctx, layer: number, x: number, y: number, size: number, colo
   return `Dialogue: ${layer},${ctx.start},${ctx.end},Tpl,,0,0,0,,{\\an5\\pos(${Math.round(x)},${Math.round(y)})\\fn${font}\\fs${size}\\bord0\\shad0\\1c${color}${FADE}}${clean(text)}`;
 }
 
+// Texto alineado a la izquierda, centrado verticalmente en y.
+function leftLabel(ctx: Ctx, layer: number, x: number, y: number, size: number, color: string, text: string, font = "Poppins Bold"): string {
+  return `Dialogue: ${layer},${ctx.start},${ctx.end},Tpl,,0,0,0,,{\\an4\\pos(${Math.round(x)},${Math.round(y)})\\fn${font}\\fs${size}\\bord0\\shad0\\1c${color}${FADE}}${clean(text)}`;
+}
+
 function centeredBox(width: number): number {
   return (W - width) / 2;
 }
@@ -86,6 +92,29 @@ export function templateEvents(t: TemplateInstance, ctx: Ctx): string[] {
         label(ctx, 12, W / 2, y + header / 2, 50, WHITE, v.titulo.toLocaleUpperCase("es"), "Poppins ExtraBold"),
       ];
       lines.forEach((line, i) => out.push(label(ctx, 12, W / 2, y + header + 35 + lineH * (i + 0.5), 64, DARK, line)));
+      return out;
+    }
+    case "comentario": {
+      const width = 880;
+      const x = centeredBox(width);
+      const y = 300;
+      const pad = 40;
+      const r = 34;
+      const lines = wrap(v.comentario, 26);
+      const lineH = 60;
+      const top = pad + r * 2 + 24;
+      const height = top + lines.length * lineH + pad - 10;
+      const user = `@${v.usuario.replace(/^@/, "")}`;
+      const initial = (v.usuario.replace(/^@/, "")[0] ?? "?").toUpperCase();
+      const out = [
+        shape(ctx, 10, x, y, WHITE, roundedRect(width, height, 34)),
+        // colita de la burbuja
+        shape(ctx, 10, x + 70, y + height - 2, WHITE, "m 0 0 l 0 30 l 48 0"),
+        shape(ctx, 11, x + pad, y + pad, ACCENT, roundedRect(r * 2, r * 2, r)),
+        label(ctx, 12, x + pad + r, y + pad + r, 40, WHITE, initial, "Poppins ExtraBold"),
+        leftLabel(ctx, 12, x + pad + r * 2 + 22, y + pad + r, 34, GRAY, `${v.titulo} ${user}`, "Poppins Medium"),
+      ];
+      lines.forEach((line, i) => out.push(leftLabel(ctx, 12, x + pad, y + top + lineH * (i + 0.5), 54, DARK, line, "Poppins ExtraBold")));
       return out;
     }
     case "gancho": {

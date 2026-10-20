@@ -29,6 +29,19 @@ export const TEMPLATES: Template[] = [
     hint: "Mostrala cuando se presenta o se lee la pregunta (casi siempre al principio). Dejala hasta que empieza la respuesta.",
   },
   {
+    id: "comentario",
+    name: "Responder comentario",
+    description: "La burbuja de «respuesta al comentario» de TikTok, para contestar lo que te escriben.",
+    fields: [
+      { key: "usuario", label: "Usuario", placeholder: "cliente_feliz", maxLength: 30 },
+      { key: "comentario", label: "Comentario", placeholder: "¿Cuánto sale la batería de un iPhone 12?", maxLength: 110 },
+      { key: "titulo", label: "Texto de arriba", placeholder: "Respuesta al comentario de", maxLength: 30, optional: true, default: "Respuesta al comentario de" },
+    ],
+    placement: "start",
+    defaultSeconds: 3.5,
+    hint: "Mostrala al principio, mientras se lee o se menciona el comentario. Dejala hasta que empieza la respuesta.",
+  },
+  {
     id: "gancho",
     name: "Título gancho",
     description: "Una frase grande arriba durante los primeros segundos para que no pasen de largo.",

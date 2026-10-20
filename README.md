@@ -7,6 +7,7 @@ La persona sube su video crudo, elige un estilo y la app lo corta (saca errores,
 - **Precio:** $5.000 por video y $2.500 por cada ronda de cambios. Se compra con Mercado Pago en paquetes de 1, 5 o 10 videos. La primera edición es gratis.
 - **Formatos:** hablando a cámara, cajita de preguntas, con ejemplos y paso a paso (`lib/formats.ts`). Se combinan con el estilo visual.
 - **Referencias:** el usuario sube un reel o una captura que le gusta y elige qué copiar (subtítulos, animación, ritmo) con detalles escritos. Claude mira fotogramas, elige la fuente más parecida del catálogo (`lib/fonts.ts`) y guarda el resultado en «Mis estilos». Es gratis, con un límite de 5 por día.
+- **Cajitas y comentarios:** generador propio (`lib/stickers.ts`) de la burbuja de «responder comentario» de TikTok, la cajita de preguntas de Instagram y el comentario de Instagram. Corre en el navegador, sin costo: descarga un PNG transparente o lo guarda en la carpeta. También existe como plantilla «Responder comentario» dentro del video.
 - **Carpeta de recursos:** lo que suben queda guardado (hasta 1 GB por usuario) para reusarlo en otros reels.
 - **Generadores con IA (fal):** el código está, pero apagado. Se prende con `NEXT_PUBLIC_AI_GENERATORS=1`.
 

@@ -169,6 +169,12 @@ export default function Landing() {
               </p>
             </div>
             <div className="card">
+              <h3>Cajitas de comentarios gratis</h3>
+              <p className="muted" style={{ margin: 0 }}>
+                Armá la burbuja de «responder comentario» o la cajita de preguntas y bajala en PNG. Sin pagar otra app.
+              </p>
+            </div>
+            <div className="card">
               <h3>Subtítulos que se leen</h3>
               <p className="muted" style={{ margin: 0 }}>
                 Grandes, con las palabras clave destacadas. La mayoría mira los reels sin sonido.

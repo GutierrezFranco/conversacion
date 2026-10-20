@@ -7,6 +7,7 @@ import { AI_GENERATORS } from "@/lib/features";
 const tabs = [
   { href: "/app", label: "✂ Editá tu reel" },
   { href: "/app/recursos", label: "Mis recursos" },
+  { href: "/app/cajitas", label: "Cajitas y comentarios" },
   ...(AI_GENERATORS
     ? [
         { href: "/app/imagenes", label: "Imágenes con IA" },

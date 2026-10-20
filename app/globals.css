@@ -440,6 +440,21 @@ label {
   background: linear-gradient(135deg, #3a3346, #20242e);
 }
 
+/* Fondo a cuadros para ver la transparencia de la cajita */
+.sticker-stage {
+  padding: 28px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background-color: #2a2833;
+  background-image:
+    linear-gradient(45deg, #34313f 25%, transparent 25%),
+    linear-gradient(-45deg, #34313f 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #34313f 75%),
+    linear-gradient(-45deg, transparent 75%, #34313f 75%);
+  background-size: 24px 24px;
+  background-position: 0 0, 0 12px, 12px -12px, -12px 0;
+}
+
 /* ---------- Landing ---------- */
 
 .hero {
