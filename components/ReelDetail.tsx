@@ -36,7 +36,8 @@ export function ReelDetail({
       try {
         const { job } = await api<{ job: JobDetail }>(`/api/jobs/${id}`);
         if (!alive) return;
-        setJob(job);
+        // Cada consulta trae una URL firmada nueva del crudo; si la cambiamos, el reproductor recarga el video.
+        setJob((prev) => (prev?.rawUrl ? { ...job, rawUrl: prev.rawUrl } : job));
         if (job.status === "queued" || job.status === "processing") timer = setTimeout(load, 4000);
         else router.refresh(); // actualiza el saldo si hubo devolución
       } catch {
