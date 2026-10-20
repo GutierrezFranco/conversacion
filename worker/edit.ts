@@ -118,7 +118,10 @@ export async function runEdit(job: Job, parent: Job | null): Promise<EditResult>
     );
     const templateLines = placed.flatMap((p) => templateEvents(p.instance, { start: assTime(p.start), end: assTime(p.end) }));
 
-    const cues = buildCues(words, segments, new Set(plan.highlights), style.captions.wordsPerLine);
+    // Los subtítulos usan el texto corregido por Claude (voseo, nombres propios); los tiempos no cambian.
+    const fixes = new Map((plan.fixes ?? []).map((f) => [f.word, f.text.trim()]));
+    const captionWords = words.map((w) => (fixes.get(w.i) ? { ...w, text: fixes.get(w.i)! } : w));
+    const cues = buildCues(captionWords, segments, new Set(plan.highlights), style.captions.wordsPerLine);
     const premium = isPremium(style);
     // Motor por defecto: ffmpeg dibuja todo en una pasada (subtítulos ASS).
     // Premium: ffmpeg corta sin subtítulos y HyperFrames dibuja subtítulos y plantillas animados.

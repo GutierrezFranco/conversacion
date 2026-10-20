@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseWhisperJson } from "./transcribe";
+import { parseParakeetJson, parseWhisperJson } from "./transcribe";
 
 // Salida real de whisper.cpp con -ml 1 -sow -oj: un segmento por palabra, offsets en ms.
 const json = {
@@ -27,4 +27,16 @@ test("convierte whisper.cpp en palabras con tiempos en segundos", () => {
   assert.equal(words[0].end, 0.45);
   assert.equal(words[2].end, 1.11);
   assert.ok(words[3].end > words[3].start, "las palabras sin duración reciben un mínimo");
+});
+
+test("lee la transcripción de Parakeet (HyperFrames) y numera las palabras", () => {
+  const words = parseParakeetJson([
+    { text: " Hola,", start: 0.1, end: 0.4 },
+    { text: "", start: 0.4, end: 0.5 },
+    { text: "che", start: 0.5, end: 0.8 },
+  ]);
+  assert.deepEqual(words, [
+    { i: 0, text: "Hola,", start: 0.1, end: 0.4 },
+    { i: 1, text: "che", start: 0.5, end: 0.8 },
+  ]);
 });
