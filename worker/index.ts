@@ -7,6 +7,7 @@ import { env } from "../lib/env";
 import { OUTPUT_RETENTION_DAYS, RAW_RETENTION_DAYS } from "../lib/storage-rules";
 import { runEdit } from "./edit";
 import { runImage, runVideo } from "./generate";
+import { runReference } from "./reference";
 import { db, type Job } from "./storage";
 
 env("ANTHROPIC_API_KEY");
@@ -39,6 +40,8 @@ async function handleJob(job: Job) {
         parent = data as Job;
       }
       result = await runEdit(job, parent);
+    } else if (job.kind === "reference") {
+      result = await runReference(job);
     } else if (job.kind === "image") {
       result = await runImage(job);
     } else {
@@ -83,6 +86,7 @@ setInterval(() => sweepStuckJobs().catch((e) => console.error("sweep", e)), 60_0
 async function cleanupOldFiles() {
   const rules = [
     { bucket: "uploads", folder: "raw", days: RAW_RETENTION_DAYS },
+    { bucket: "uploads", folder: "refs", days: RAW_RETENTION_DAYS },
     { bucket: "outputs", folder: "", days: OUTPUT_RETENTION_DAYS },
   ];
   for (const r of rules) {

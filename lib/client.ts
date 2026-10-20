@@ -15,7 +15,7 @@ export async function api<T>(path: string, body?: unknown, method?: "DELETE"): P
 }
 
 // Sube un archivo directo a Supabase Storage con una URL firmada, informando el progreso.
-export async function uploadFile(file: File, purpose: "raw" | "asset", onProgress?: (pct: number) => void): Promise<string> {
+export async function uploadFile(file: File, purpose: "raw" | "asset" | "ref", onProgress?: (pct: number) => void): Promise<string> {
   const { path, token } = await api<{ path: string; token: string }>("/api/uploads", { filename: file.name, size: file.size, purpose });
   const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/upload/sign/uploads/${path}?token=${encodeURIComponent(token)}`;
 

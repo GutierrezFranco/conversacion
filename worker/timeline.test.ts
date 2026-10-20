@@ -79,3 +79,14 @@ test("genera un ASS válido con destacados", () => {
   assert.match(ass, /MUESTRO/);
   assert.ok(ass.includes(`{\\c${style.captions.highlight}}MUESTRO`));
 });
+
+test("modo karaoke: un evento por palabra con la palabra activa pintada", () => {
+  const segs = buildSegments(words, [{ fromWord: 5, toWord: 8, zoom: false }], 8);
+  const base = STYLES.find((s) => s.id === "tech")!;
+  const style = { ...base, captions: { ...base.captions, animation: "karaoke" as const, box: true } };
+  const ass = toAss(buildCues(words, segs, new Set(), 4), style);
+  const events = ass.split("\n").filter((l) => l.startsWith("Dialogue"));
+  assert.equal(events.length, 4);
+  assert.ok(events[1].includes(`{\\c${style.captions.highlight}}TE`));
+  assert.match(ass, /,3,6,0,2,80,80,/); // BorderStyle 3 = caja
+});

@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { AI_GENERATORS } from "./features";
-import { getStyle } from "./styles";
+import { getFormat } from "./formats";
+import { COPY_IDS } from "./reference";
+import { getStyle, type EditStyle } from "./styles";
 import { normalizeInstance } from "./templates";
 import {
   EDIT_CREDITS,
@@ -26,6 +28,7 @@ export const editInput = z.object({
   title: z.string().max(120).default("Mi reel"),
   rawPath: z.string().min(1),
   styleId: z.string(),
+  formatId: z.string().default("camara"),
   resources: z.array(resourceSchema).max(10).default([]),
   templates: z
     .array(z.object({ templateId: z.string(), values: z.record(z.string(), z.string().max(200)), note: z.string().max(300).default("") }))
@@ -56,11 +59,21 @@ export const videoInput = z.object({
   seconds: z.number().int().min(3).max(15).default(5),
 });
 
-export const jobInput = z.discriminatedUnion("kind", [editInput, iterateInput, imageInput, videoInput]);
+export const referenceInput = z.object({
+  kind: z.literal("reference"),
+  path: z.string().min(1),
+  name: z.string().max(200),
+  copy: z.array(z.enum(COPY_IDS)).max(3).default([...COPY_IDS]),
+  details: z.string().max(1000).default(""),
+  // Lo que no se copie de la referencia se toma de este estilo.
+  baseStyleId: z.string().default("tech"),
+});
+
+export const jobInput = z.discriminatedUnion("kind", [editInput, iterateInput, imageInput, videoInput, referenceInput]);
 export type JobInput = z.infer<typeof jobInput>;
 
 export type ResolvedJob = {
-  kind: "edit" | "image" | "video";
+  kind: "edit" | "image" | "video" | "reference";
   title: string;
   params: Record<string, unknown>;
   cost: number;
@@ -69,18 +82,32 @@ export type ResolvedJob = {
 
 // Valida contra el catálogo y devuelve el trabajo listo para cobrar. Lanza Error con un mensaje
 // para mostrarle al usuario si algo no cierra.
-export function resolveJob(input: Exclude<JobInput, { kind: "iterate" }>): ResolvedJob {
-  if (input.kind !== "edit" && !AI_GENERATORS) throw new Error("Los generadores con IA todavía no están disponibles.");
+// customStyle: el estilo propio (sacado de una referencia) cuando styleId es "custom:<id>".
+// Se guarda una copia en el trabajo para que editarlo después no cambie reels ya hechos.
+export function resolveJob(input: Exclude<JobInput, { kind: "iterate" }>, customStyle?: EditStyle): ResolvedJob {
+  if ((input.kind === "image" || input.kind === "video") && !AI_GENERATORS) throw new Error("Los generadores con IA todavía no están disponibles.");
   switch (input.kind) {
+    case "reference": {
+      if (!getStyle(input.baseStyleId)) throw new Error("Ese estilo no existe.");
+      return {
+        kind: "reference",
+        title: input.name.slice(0, 80) || "Referencia",
+        params: { path: input.path, name: input.name, copy: input.copy, details: input.details, baseStyleId: input.baseStyleId },
+        cost: 0,
+      };
+    }
     case "edit": {
-      const style = getStyle(input.styleId);
-      if (!style) throw new Error("Ese estilo no existe.");
+      const style = input.styleId.startsWith("custom:") ? customStyle : getStyle(input.styleId);
+      if (!style || style.id !== input.styleId) throw new Error("Ese estilo no existe.");
+      if (!getFormat(input.formatId)) throw new Error("Ese formato no existe.");
       return {
         kind: "edit",
         title: input.title,
         params: {
           rawPath: input.rawPath,
           styleId: style.id,
+          formatId: input.formatId,
+          ...(customStyle ? { style: customStyle } : {}),
           resources: input.resources,
           templates: input.templates.map(normalizeInstance),
           instructions: input.instructions,
@@ -123,7 +150,7 @@ export function iterationJob(parent: { id: string; title: string | null; params:
 }
 
 // Un usuario solo puede referenciar archivos dentro de su propia carpeta.
-export function ownsPath(userId: string, path: string, folder?: "raw" | "assets"): boolean {
+export function ownsPath(userId: string, path: string, folder?: "raw" | "assets" | "refs"): boolean {
   const prefix = folder ? `${userId}/${folder}/` : `${userId}/`;
   return path.startsWith(prefix) && !path.includes("..");
 }

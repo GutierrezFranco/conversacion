@@ -9,7 +9,7 @@ export type JobResult = { outputs: { path: string; type: "video" | "image" }[] }
 export type Job = {
   id: string;
   user_id: string;
-  kind: "edit" | "image" | "video";
+  kind: "edit" | "image" | "video" | "reference";
   params: Record<string, unknown>;
   parent_job_id: string | null;
   result: unknown;

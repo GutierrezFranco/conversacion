@@ -37,6 +37,9 @@ export const editPlanSchema = z.object({
       }),
     )
     .describe("Cuándo se muestra cada plantilla. Incluí todas las plantillas que mandó el usuario."),
+  labels: z
+    .array(z.object({ text: z.string().describe("1 a 3 palabras, en mayúsculas"), fromWord: z.number().int(), toWord: z.number().int() }))
+    .describe("Etiquetas cortas que escribís vos (por ejemplo PASO 1). Solo si el formato lo pide; si no, dejalo vacío."),
   summary: z.string().describe("Dos o tres oraciones, en español rioplatense, contándole al usuario qué se hizo"),
 });
 
@@ -48,6 +51,7 @@ export type PlanTemplate = { index: number; name: string; text: string; hint: st
 type PlanInput = {
   words: Word[];
   style: EditStyle;
+  format: { name: string; direction: string; autoLabels: boolean };
   resources: PlanResource[];
   templates: PlanTemplate[];
   instructions: string;
@@ -73,6 +77,7 @@ export async function planEdit(input: PlanInput): Promise<EditPlan> {
   const client = new Anthropic();
 
   const parts = [
+    `FORMATO: ${input.format.name}. ${input.format.direction}${input.format.autoLabels ? "" : " No agregues labels."}`,
     `ESTILO: ${input.style.name}. ${input.style.direction}`,
     input.resources.length
       ? `RECURSOS:\n${input.resources.map((r) => `${r.index}. ${r.kind === "video" ? "Video" : "Imagen"} "${r.name}": ${r.note || "(sin nota)"}`).join("\n")}`

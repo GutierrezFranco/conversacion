@@ -1,15 +1,19 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AssetLibrary } from "@/components/AssetLibrary";
+import { ReferencePanel } from "@/components/ReferencePanel";
+import { StylePreview } from "@/components/StylePreview";
+import { FORMATS } from "@/lib/formats";
 import { api, uploadFile, type Asset } from "@/lib/client";
 import { RAW_MAX_BYTES } from "@/lib/storage-rules";
-import { STYLES } from "@/lib/styles";
+import { STYLES, type EditStyle } from "@/lib/styles";
 import { TEMPLATES, getTemplate, type TemplateInstance } from "@/lib/templates";
 
 type Resource = { asset: Asset; note: string };
 type TemplateDraft = TemplateInstance & { key: number };
+type CustomStyle = { id: string; name: string; style: EditStyle; analysis: string | null; copied: string[] };
 
 export function ReelEditor({ cost, priceLabel }: { cost: number; priceLabel: string }) {
   const router = useRouter();
@@ -20,6 +24,9 @@ export function ReelEditor({ cost, priceLabel }: { cost: number; priceLabel: str
   const [rawPath, setRawPath] = useState<string | null>(null);
   const [rawProgress, setRawProgress] = useState(0);
   const [styleId, setStyleId] = useState(STYLES[0].id);
+  const [formatId, setFormatId] = useState(FORMATS[0].id);
+  const [customStyles, setCustomStyles] = useState<CustomStyle[]>([]);
+  const [showReference, setShowReference] = useState(false);
   const [resources, setResources] = useState<Resource[]>([]);
   const [showLibrary, setShowLibrary] = useState(false);
   const [templates, setTemplates] = useState<TemplateDraft[]>([]);
@@ -27,6 +34,35 @@ export function ReelEditor({ cost, priceLabel }: { cost: number; priceLabel: str
   const [drag, setDrag] = useState(false);
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
+
+  async function loadStyles() {
+    try {
+      const { styles } = await api<{ styles: CustomStyle[] }>("/api/styles");
+      setCustomStyles(styles);
+      return styles;
+    } catch {
+      return [];
+    }
+  }
+
+  useEffect(() => {
+    loadStyles();
+  }, []);
+
+  async function removeStyle(s: CustomStyle) {
+    if (!confirm(`¿Borrar el estilo «${s.name}»?`)) return;
+    await api(`/api/styles/${s.id}`, undefined, "DELETE").catch(() => null);
+    setCustomStyles((prev) => prev.filter((x) => x.id !== s.id));
+    if (styleId === s.style.id) setStyleId(STYLES[0].id);
+  }
+
+  function pickFormat(id: string) {
+    setFormatId(id);
+    const f = FORMATS.find((x) => x.id === id);
+    // La cajita de preguntas se agrega sola para que solo haya que escribir la pregunta.
+    if (f?.suggests && !templates.some((t) => t.templateId === f.suggests)) addTemplate(f.suggests);
+    if (f?.wantsResources && resources.length === 0) setShowLibrary(true);
+  }
 
   async function pickRaw(file: File | undefined) {
     if (!file) return;
@@ -77,6 +113,7 @@ export function ReelEditor({ cost, priceLabel }: { cost: number; priceLabel: str
         title: raw?.name.replace(/\.[^.]+$/, "").slice(0, 120) || "Mi reel",
         rawPath,
         styleId,
+        formatId,
         instructions,
         resources: resources.map((r) => ({ path: r.asset.path, name: r.asset.name, kind: r.asset.kind, note: r.note })),
         templates: templates.map(({ templateId, values, note }) => ({ templateId, values, note })),
@@ -135,17 +172,78 @@ export function ReelEditor({ cost, priceLabel }: { cost: number; priceLabel: str
       </div>
 
       <div>
-        <h3>Elegí tu estilo de edición</h3>
+        <h3>¿Qué tipo de video es?</h3>
+        <div className="grid grid-4">
+          {FORMATS.map((f) => (
+            <button key={f.id} className={`card selectable ${formatId === f.id ? "selected" : ""}`} onClick={() => pickFormat(f.id)}>
+              <b>{f.name}</b>
+              <p className="muted small" style={{ margin: "8px 0 0" }}>
+                {f.description}
+              </p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h3>Elegí el estilo</h3>
         <div className="grid grid-3">
+          {customStyles.map((c) => (
+            <div key={c.id} className={`card selectable ${styleId === c.style.id ? "selected" : ""}`} onClick={() => setStyleId(c.style.id)} role="button">
+              <div className="row">
+                <b>{c.name}</b>
+                <span className="pill pill-accent">Mi estilo</span>
+                <div className="spacer" />
+                <button
+                  className="btn btn-ghost small"
+                  style={{ padding: "4px 10px" }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeStyle(c);
+                  }}
+                >
+                  Borrar
+                </button>
+              </div>
+              {c.analysis && (
+                <p className="muted small" style={{ margin: "8px 0 0" }}>
+                  {c.analysis}
+                </p>
+              )}
+              <StylePreview style={c.style} />
+            </div>
+          ))}
           {STYLES.map((s) => (
             <button key={s.id} className={`card selectable ${styleId === s.id ? "selected" : ""}`} onClick={() => setStyleId(s.id)}>
               <b>{s.name}</b> <span className="pill" style={{ marginLeft: 6 }}>{s.tagline}</span>
               <p className="muted small" style={{ margin: "8px 0 0" }}>
                 {s.description}
               </p>
+              <StylePreview style={s} />
             </button>
           ))}
+          {!showReference && (
+            <button className="card selectable" style={{ borderStyle: "dashed" }} onClick={() => setShowReference(true)}>
+              <b>+ Agregar referencia</b>
+              <p className="muted small" style={{ margin: "8px 0 0" }}>
+                ¿Viste un reel con subtítulos que te encantan? Subilo y copiamos la fuente, los colores, la animación o el ritmo.
+              </p>
+            </button>
+          )}
         </div>
+        {showReference && (
+          <div style={{ marginTop: 14 }}>
+            <ReferencePanel
+              baseStyleId={styleId.startsWith("custom:") ? STYLES[0].id : styleId}
+              onCancel={() => setShowReference(false)}
+              onReady={async (id) => {
+                await loadStyles();
+                setStyleId(id);
+                setShowReference(false);
+              }}
+            />
+          </div>
+        )}
       </div>
 
       <div className="card stack">

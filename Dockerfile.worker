@@ -6,13 +6,16 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends ffmpeg fontconfig ca-certificates curl \
   && rm -rf /var/lib/apt/lists/*
 
-# Tipografías que usan los estilos de subtítulos (lib/styles.ts).
+# Tipografías que usan los estilos y las referencias. Tiene que coincidir con lib/fonts.ts.
 ENV FONTS_DIR=/usr/share/fonts/edicion
 RUN mkdir -p $FONTS_DIR && cd $FONTS_DIR \
-  && for f in Poppins-Medium Poppins-SemiBold Poppins-Bold Poppins-ExtraBold; do \
-       curl -fsSLo $f.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/poppins/$f.ttf; \
-     done \
-  && curl -fsSLo Anton-Regular.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/anton/Anton-Regular.ttf \
+  && for f in \
+       ofl/poppins/Poppins-Medium.ttf ofl/poppins/Poppins-SemiBold.ttf ofl/poppins/Poppins-Bold.ttf ofl/poppins/Poppins-ExtraBold.ttf \
+       ofl/anton/Anton-Regular.ttf ofl/bebasneue/BebasNeue-Regular.ttf ofl/archivoblack/ArchivoBlack-Regular.ttf \
+       ofl/kanit/Kanit-Bold.ttf ofl/kanit/Kanit-ExtraBoldItalic.ttf ofl/bangers/Bangers-Regular.ttf \
+       ofl/lilitaone/LilitaOne-Regular.ttf ofl/titanone/TitanOne-Regular.ttf apache/permanentmarker/PermanentMarker-Regular.ttf \
+       ofl/caveatbrush/CaveatBrush-Regular.ttf ofl/dmserifdisplay/DMSerifDisplay-Regular.ttf; \
+     do curl -fsSLO https://raw.githubusercontent.com/google/fonts/main/$f; done \
   && fc-cache -f
 
 WORKDIR /app

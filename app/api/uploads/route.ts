@@ -3,12 +3,12 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { handle, HttpError, requireUser } from "@/lib/api";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { ASSET_EXT, ASSET_MAX_BYTES, ASSET_QUOTA_BYTES, RAW_EXT, RAW_MAX_BYTES, formatBytes } from "@/lib/storage-rules";
+import { ASSET_EXT, ASSET_MAX_BYTES, ASSET_QUOTA_BYTES, RAW_EXT, RAW_MAX_BYTES, REF_MAX_BYTES, formatBytes } from "@/lib/storage-rules";
 
 const body = z.object({
   filename: z.string().min(1).max(200),
   size: z.number().int().nonnegative(),
-  purpose: z.enum(["raw", "asset"]),
+  purpose: z.enum(["raw", "asset", "ref"]),
 });
 
 // Devuelve una URL firmada para que el navegador suba el archivo directo a Storage,
@@ -24,6 +24,9 @@ export function POST(request: Request) {
     if (purpose === "raw") {
       if (!RAW_EXT.test(filename)) throw new HttpError("Subí el video en MP4 o MOV.", 400);
       if (size > RAW_MAX_BYTES) throw new HttpError("El video pesa más de 1 GB. Exportalo más liviano.", 400);
+    } else if (purpose === "ref") {
+      if (!ASSET_EXT.test(filename)) throw new HttpError("Subí la referencia como video (MP4, MOV) o captura (PNG, JPG).", 400);
+      if (size > REF_MAX_BYTES) throw new HttpError(`La referencia puede pesar hasta ${formatBytes(REF_MAX_BYTES)}.`, 400);
     } else {
       if (!ASSET_EXT.test(filename)) throw new HttpError("Formato no soportado. Subí PNG, JPG, WEBP, MP4 o MOV.", 400);
       if (size > ASSET_MAX_BYTES) throw new HttpError(`Cada recurso puede pesar hasta ${formatBytes(ASSET_MAX_BYTES)}.`, 400);
@@ -35,7 +38,7 @@ export function POST(request: Request) {
     }
 
     const ext = filename.split(".").pop()!.toLowerCase();
-    const folder = purpose === "raw" ? "raw" : "assets";
+    const folder = { raw: "raw", asset: "assets", ref: "refs" }[purpose];
     const path = `${user.id}/${folder}/${randomUUID()}.${ext}`;
 
     const { data, error } = await admin.storage.from("uploads").createSignedUploadUrl(path);

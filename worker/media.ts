@@ -98,3 +98,39 @@ export async function render(opts: Parameters<typeof buildRenderArgs>[0]) {
 export function fontsDir(): string | undefined {
   return process.env.FONTS_DIR;
 }
+
+// Fotogramas repartidos a lo largo del video, achicados para mandarlos a la IA.
+export async function extractFrames(input: string, duration: number, count: number, outPrefix: string): Promise<string[]> {
+  const files: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const t = (duration * (i + 0.5)) / count;
+    const file = `${outPrefix}-${i}.jpg`;
+    await run("ffmpeg", ["-y", "-ss", t.toFixed(2), "-i", input, "-frames:v", "1", "-vf", "scale=540:-2", "-q:v", "4", file]);
+    files.push(file);
+  }
+  return files;
+}
+
+// Convierte una imagen cualquiera a JPG de hasta 1080 px para la IA.
+export async function toJpeg(input: string, output: string) {
+  await run("ffmpeg", ["-y", "-i", input, "-frames:v", "1", "-vf", "scale='min(1080,iw)':-2", "-q:v", "3", output]);
+}
+
+// Cantidad de cortes de cámara (cambios de escena) en el video.
+export function countCuts(input: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const p = spawn("ffmpeg", ["-i", input, "-vf", "scale=320:-2,select='gt(scene,0.3)',showinfo", "-an", "-f", "null", "-"], {
+      stdio: ["ignore", "ignore", "pipe"],
+    });
+    let cuts = 0;
+    let rest = "";
+    p.stderr.on("data", (d) => {
+      const text = rest + d;
+      const lines = text.split("\n");
+      rest = lines.pop() ?? "";
+      cuts += lines.filter((l) => l.includes("Parsed_showinfo") && l.includes("pts_time")).length;
+    });
+    p.on("error", reject);
+    p.on("close", (code) => (code === 0 ? resolve(cuts) : reject(new Error(`ffmpeg terminó con código ${code}`))));
+  });
+}

@@ -163,6 +163,12 @@ export default function Landing() {
               </p>
             </div>
             <div className="card">
+              <h3>Copiá el estilo que te gusta</h3>
+              <p className="muted" style={{ margin: 0 }}>
+                ¿Viste un reel con subtítulos que te encantan? Subilo como referencia y copiamos la fuente, los colores y el ritmo.
+              </p>
+            </div>
+            <div className="card">
               <h3>Subtítulos que se leen</h3>
               <p className="muted" style={{ margin: 0 }}>
                 Grandes, con las palabras clave destacadas. La mayoría mira los reels sin sonido.

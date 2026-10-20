@@ -5,6 +5,8 @@ Editor de reels para técnicos de celulares que graban contenido y no quieren pe
 La persona sube su video crudo, elige un estilo y la app lo corta (saca errores, muletillas y silencios), le pone subtítulos con palabras destacadas, mete sus recursos (fotos de antes y después, logo, capturas) justo cuando los menciona y suma plantillas como la cajita de preguntas, el precio o un llamado a la acción. Si algo no le gusta, pide cambios y se vuelve a editar.
 
 - **Precio:** $5.000 por video y $2.500 por cada ronda de cambios. Se compra con Mercado Pago en paquetes de 1, 5 o 10 videos. La primera edición es gratis.
+- **Formatos:** hablando a cámara, cajita de preguntas, con ejemplos y paso a paso (`lib/formats.ts`). Se combinan con el estilo visual.
+- **Referencias:** el usuario sube un reel o una captura que le gusta y elige qué copiar (subtítulos, animación, ritmo) con detalles escritos. Claude mira fotogramas, elige la fuente más parecida del catálogo (`lib/fonts.ts`) y guarda el resultado en «Mis estilos». Es gratis, con un límite de 5 por día.
 - **Carpeta de recursos:** lo que suben queda guardado (hasta 1 GB por usuario) para reusarlo en otros reels.
 - **Generadores con IA (fal):** el código está, pero apagado. Se prende con `NEXT_PUBLIC_AI_GENERATORS=1`.
 
@@ -33,7 +35,7 @@ Navegador ──► Next.js (Vercel) ──► Supabase (login, base de datos, a
 ### 1. Supabase
 
 1. Creá un proyecto en [supabase.com](https://supabase.com).
-2. En **SQL Editor**, pegá y ejecutá `supabase/migrations/0001_init.sql` y después `0002_assets.sql`.
+2. En **SQL Editor**, pegá y ejecutá, en orden, `supabase/migrations/0001_init.sql`, `0002_assets.sql` y `0003_reference_styles.sql`.
 3. En **Authentication → URL Configuration**, poné tu dominio en *Site URL* y agregá `https://tu-dominio/auth/callback` a *Redirect URLs* (y `http://localhost:3000/auth/callback` para probar en local).
 4. Opcional: activá Google en **Authentication → Providers**.
 

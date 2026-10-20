@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { api, STATUS_CLASS, STATUS_LABEL, type JobSummary } from "@/lib/client";
 
 type JobDetail = JobSummary & {
-  params: { styleId?: string; changes?: string };
+  params: { styleId?: string; changes?: string; style?: { name: string } };
   result: { summary?: string; duration?: number } | null;
   rawUrl: string | null;
 };
@@ -77,7 +77,7 @@ export function ReelDetail({
         </Link>
         <h1 style={{ margin: 0 }}>{job.title}</h1>
         <span className={STATUS_CLASS[job.status]}>{STATUS_LABEL[job.status]}</span>
-        {job.params.styleId && <span className="pill">Estilo {styleNames[job.params.styleId] ?? job.params.styleId}</span>}
+        {job.params.styleId && <span className="pill">Estilo {job.params.style?.name ?? styleNames[job.params.styleId] ?? job.params.styleId}</span>}
       </div>
 
       <div className="row" style={{ alignItems: "flex-start", gap: 24 }}>

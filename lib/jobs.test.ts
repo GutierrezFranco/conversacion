@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { jobInput, ownsPath, resolveJob } from "./jobs";
+import { STYLES } from "./styles";
 import { CREDIT_PRICE_ARS, EDIT_CREDITS, ITERATION_CREDITS, PACKS, creditsFor, pricePerVideo } from "./pricing";
 
 test("el precio de una edición sale del servidor", () => {
@@ -10,7 +11,7 @@ test("el precio de una edición sale del servidor", () => {
 });
 
 test("rechaza estilos y modelos inexistentes", () => {
-  assert.throws(() => resolveJob({ kind: "edit", title: "x", rawPath: "u/a", styleId: "nope", resources: [], templates: [], instructions: "" }));
+  assert.throws(() => resolveJob({ kind: "edit", title: "x", rawPath: "u/a", styleId: "nope", formatId: "camara", resources: [], templates: [], instructions: "" }));
   assert.throws(() => resolveJob({ kind: "image", modelId: "nope", prompt: "hola mundo", aspectRatio: "1:1", count: 1 }));
 });
 
@@ -49,4 +50,24 @@ test("las plantillas se validan y completan en el servidor", () => {
   const job = resolveJob(input);
   assert.deepEqual((job.params.templates as { values: Record<string, string> }[])[0].values, { titulo: "Me preguntaron", pregunta: "¿Se puede?" });
   assert.throws(() => resolveJob({ ...input, templates: [{ templateId: "precio", values: {}, note: "" }] }));
+});
+
+test("los estilos propios se copian en el trabajo y deben coincidir con el pedido", () => {
+  const input = jobInput.parse({ kind: "edit", rawPath: "u1/raw/a.mp4", styleId: "custom:abc", formatId: "pasos" });
+  if (input.kind !== "edit") throw new Error("tipo inesperado");
+  assert.throws(() => resolveJob(input)); // sin el estilo cargado
+  const custom = { ...STYLES[0], id: "custom:abc", name: "Mío" };
+  const job = resolveJob(input, custom);
+  assert.equal((job.params.style as { name: string }).name, "Mío");
+  assert.equal(job.params.formatId, "pasos");
+  assert.throws(() => resolveJob(input, { ...custom, id: "custom:otro" }));
+  assert.throws(() => resolveJob({ ...input, formatId: "nope" }, custom));
+});
+
+test("analizar una referencia es gratis y valida qué se copia", () => {
+  const input = jobInput.parse({ kind: "reference", path: "u1/refs/r.mp4", name: "ref.mp4", details: "solo los subtítulos" });
+  if (input.kind !== "reference") throw new Error("tipo inesperado");
+  assert.deepEqual(input.copy, ["subtitulos", "animacion", "ritmo"]);
+  assert.equal(resolveJob(input).cost, 0);
+  assert.equal(jobInput.safeParse({ kind: "reference", path: "x", name: "y", copy: ["colores"] }).success, false);
 });

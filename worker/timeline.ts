@@ -76,7 +76,7 @@ export function mapWordRange(words: Word[], segments: Segment[], from: number, t
   return { start: Math.min(...times), end: Math.max(...times) };
 }
 
-export type Cue = { start: number; end: number; words: { text: string; highlight: boolean }[] };
+export type Cue = { start: number; end: number; words: { text: string; highlight: boolean; start: number; end: number }[] };
 
 // Agrupa las palabras que quedaron en líneas cortas de subtítulos.
 export function buildCues(words: Word[], segments: Segment[], highlights: Set<number>, wordsPerLine: number): Cue[] {
@@ -95,7 +95,7 @@ export function buildCues(words: Word[], segments: Segment[], highlights: Set<nu
       if (current) cues.push(current);
       current = { start, end, words: [] };
     }
-    current.words.push({ text: w.text, highlight: highlights.has(w.i) });
+    current.words.push({ text: w.text, highlight: highlights.has(w.i), start, end });
     current.end = end;
     lastEnd = end;
   }
@@ -124,6 +124,8 @@ function escapeAss(text: string): string {
 // Genera el archivo .ass que ffmpeg dibuja encima del video.
 export function toAss(cues: Cue[], style: EditStyle, extraEvents: string[] = []): string {
   const c = style.captions;
+  // BorderStyle 3 dibuja una caja detrás del texto con el color de OutlineColour.
+  const borderStyle = c.box ? 3 : 1;
   const header = [
     "[Script Info]",
     "ScriptType: v4.00+",
@@ -134,7 +136,7 @@ export function toAss(cues: Cue[], style: EditStyle, extraEvents: string[] = [])
     "",
     "[V4+ Styles]",
     "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-    `Style: Main,${c.font},${c.size},${c.primary},${c.highlight},${c.outline},&H64000000,0,0,0,0,100,100,0,0,1,${c.outlineWidth},0,2,80,80,${c.marginV},1`,
+    `Style: Main,${c.font},${c.size},${c.primary},${c.highlight},${c.outline},&H64000000,0,${c.italic ? -1 : 0},0,0,100,100,0,0,${borderStyle},${c.outlineWidth},${c.shadow ?? 0},2,80,80,${c.marginV},1`,
     // Base para las plantillas: cada evento trae su fuente, color y posición.
     "Style: Tpl,Poppins Bold,60,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1",
     "",
@@ -142,18 +144,29 @@ export function toAss(cues: Cue[], style: EditStyle, extraEvents: string[] = [])
     "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
   ];
 
-  const lines = cues.map((cue) => {
-    const text = cue.words
-      .map((w) => {
-        let t = escapeAss(w.text.trim());
-        if (c.uppercase) t = t.toLocaleUpperCase("es");
-        return w.highlight ? `{\\c${c.highlight}}${t}{\\c${c.primary}}` : t;
-      })
-      .join(" ");
-    // Pequeño "pop" al aparecer cada subtítulo.
-    const pop = "{\\fscx85\\fscy85\\t(0,90,\\fscx100\\fscy100)}";
-    return `Dialogue: 0,${assTime(cue.start)},${assTime(cue.end)},Main,,0,0,0,,${pop}${text}`;
-  });
+  const word = (text: string) => {
+    const t = escapeAss(text.trim());
+    return c.uppercase ? t.toLocaleUpperCase("es") : t;
+  };
+  const colored = (text: string, on: boolean) => (on ? `{\\c${c.highlight}}${word(text)}{\\c${c.primary}}` : word(text));
+  const pop = c.animation === "none" ? "" : "{\\fscx85\\fscy85\\t(0,90,\\fscx100\\fscy100)}";
+
+  const lines: string[] = [];
+  for (const cue of cues) {
+    if (c.animation === "karaoke") {
+      // Un evento por palabra: se pinta la que se está diciendo en ese momento.
+      cue.words.forEach((w, i) => {
+        const start = i === 0 ? cue.start : w.start;
+        const end = i === cue.words.length - 1 ? cue.end : cue.words[i + 1].start;
+        if (end <= start) return;
+        const text = cue.words.map((x, j) => colored(x.text, j === i)).join(" ");
+        lines.push(`Dialogue: 0,${assTime(start)},${assTime(end)},Main,,0,0,0,,${i === 0 ? pop : ""}${text}`);
+      });
+    } else {
+      const text = cue.words.map((w) => colored(w.text, w.highlight)).join(" ");
+      lines.push(`Dialogue: 0,${assTime(cue.start)},${assTime(cue.end)},Main,,0,0,0,,${pop}${text}`);
+    }
+  }
 
   return [...header, ...lines, ...extraEvents, ""].join("\n");
 }

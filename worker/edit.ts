@@ -3,7 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import { env } from "../lib/env";
-import { getStyle } from "../lib/styles";
+import { FORMATS, getFormat } from "../lib/formats";
+import { getStyle, type EditStyle } from "../lib/styles";
 import { getTemplate, type TemplateInstance } from "../lib/templates";
 import { extractAudio, fontsDir, probe, render, type RenderOverlay } from "./media";
 import { planEdit, type EditPlan, type PlanResource, type PlanTemplate } from "./plan";
@@ -16,6 +17,8 @@ const MAX_RAW_SECONDS = 5 * 60;
 type EditParams = {
   rawPath: string;
   styleId: string;
+  formatId?: string;
+  style?: EditStyle; // copia del estilo propio (sacado de una referencia)
   resources: { path: string; name: string; kind: "image" | "video"; note: string }[];
   templates?: TemplateInstance[];
   instructions: string;
@@ -43,7 +46,8 @@ async function transcribe(audioFile: string): Promise<Word[]> {
 
 export async function runEdit(job: Job, parent: Job | null): Promise<EditResult> {
   const params = job.params as EditParams;
-  const style = getStyle(params.styleId);
+  const style = params.style ?? getStyle(params.styleId);
+  const format = getFormat(params.formatId ?? "camara") ?? FORMATS[0];
   if (!style) throw new Error("Estilo desconocido.");
 
   const dir = await mkdtemp(join(tmpdir(), "edicion-"));
@@ -75,6 +79,7 @@ export async function runEdit(job: Job, parent: Job | null): Promise<EditResult>
     const plan = await planEdit({
       words,
       style,
+      format: { name: format.name, direction: format.direction, autoLabels: !!format.autoLabels },
       resources,
       templates,
       instructions: params.instructions,
@@ -103,7 +108,18 @@ export async function runEdit(job: Job, parent: Job | null): Promise<EditResult>
     }
 
     const duration = outputDuration(segments);
-    const placed = placeTemplates(templateList, plan.templates, (a, b) => mapWordRange(words, segments, a, b), duration);
+    // Las etiquetas que escribió Claude (formato paso a paso) se dibujan como la plantilla «Etiqueta».
+    const labels: TemplateInstance[] = format.autoLabels
+      ? plan.labels.slice(0, 12).map((l) => ({ templateId: "etiqueta", values: { texto: l.text.slice(0, 24) }, note: "" }))
+      : [];
+    const placements = [
+      ...plan.templates,
+      ...(format.autoLabels ? plan.labels.slice(0, 12) : []).map((l, i) => ({ template: templateList.length + i, fromWord: l.fromWord, toWord: l.toWord })),
+    ];
+    const placed = placeTemplates([...templateList, ...labels], placements, (a, b) => mapWordRange(words, segments, a, b), duration).filter(
+      // Una etiqueta cuyas palabras se cortaron no tiene sentido mostrarla al principio.
+      (p, i) => i < templateList.length || mapWordRange(words, segments, placements[i].fromWord, placements[i].toWord),
+    );
     const templateLines = placed.flatMap((p) => templateEvents(p.instance, { start: assTime(p.start), end: assTime(p.end) }));
 
     const assFile = join(dir, "subs.ass");

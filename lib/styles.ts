@@ -18,8 +18,27 @@ export type EditStyle = {
     uppercase: boolean;
     wordsPerLine: number;
     marginV: number; // distancia desde abajo, en píxeles sobre 1920
+    italic?: boolean;
+    box?: boolean; // texto sobre una caja de color (usa `outline` como color de la caja)
+    shadow?: number;
+    // pop: cada línea aparece con un rebote · karaoke: se pinta la palabra que se está diciendo
+    animation?: "pop" | "none" | "karaoke";
   };
 };
+
+// Colores: la web y la IA trabajan en #RRGGBB; ffmpeg (ASS) en &HAABBGGRR.
+export function hexToAss(hex: string, alpha = 0): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  const h = m ? m[1] : "FFFFFF";
+  const a = Math.round(Math.min(1, Math.max(0, alpha)) * 255).toString(16).padStart(2, "0");
+  return `&H${a}${h.slice(4, 6)}${h.slice(2, 4)}${h.slice(0, 2)}`.toUpperCase();
+}
+
+export function assToHex(ass: string): string {
+  const m = /^&H([0-9a-f]{2})?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})&?$/i.exec(ass.trim());
+  if (!m) return "#FFFFFF";
+  return `#${m[4]}${m[3]}${m[2]}`.toUpperCase();
+}
 
 export const STYLES: EditStyle[] = [
   {
