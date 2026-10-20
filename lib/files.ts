@@ -26,6 +26,9 @@ function r2(): S3Client {
     // R2_ENDPOINT solo hace falta para apuntar a otro servicio compatible con S3 (por ejemplo en tests).
     endpoint: process.env.R2_ENDPOINT ?? `https://${env("R2_ACCOUNT_ID")}.r2.cloudflarestorage.com`,
     forcePathStyle: true,
+    // Sin esto el SDK firma la subida con el checksum de un archivo vacío y R2 la rechaza.
+    requestChecksumCalculation: "WHEN_REQUIRED",
+    responseChecksumValidation: "WHEN_REQUIRED",
     credentials: { accessKeyId: env("R2_ACCESS_KEY_ID"), secretAccessKey: env("R2_SECRET_ACCESS_KEY") },
   });
   return s3;
