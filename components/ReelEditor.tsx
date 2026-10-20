@@ -25,6 +25,8 @@ export function ReelEditor({ price, premiumPrice }: { price: Price; premiumPrice
   const [raw, setRaw] = useState<File | null>(null);
   const [rawPath, setRawPath] = useState<string | null>(null);
   const [rawProgress, setRawProgress] = useState(0);
+  // El error de la subida va al lado del video, no abajo de todo, para que se vea.
+  const [uploadError, setUploadError] = useState("");
   const [styleId, setStyleId] = useState(STYLES[0].id);
   const [formatId, setFormatId] = useState(FORMATS[0].id);
   const [customStyles, setCustomStyles] = useState<CustomStyle[]>([]);
@@ -71,15 +73,15 @@ export function ReelEditor({ price, premiumPrice }: { price: Price; premiumPrice
 
   async function pickRaw(file: File | undefined) {
     if (!file) return;
-    if (file.size > RAW_MAX_BYTES) return setError("El video pesa más de 1 GB. Exportalo más liviano.");
-    setError("");
+    if (file.size > RAW_MAX_BYTES) return setUploadError("El video pesa más de 1 GB. Exportalo más liviano.");
+    setUploadError("");
     setRaw(file);
     setRawPath(null);
     setRawProgress(0);
     try {
       setRawPath(await uploadFile(file, "raw", setRawProgress));
     } catch (e) {
-      setError((e as Error).message);
+      setUploadError((e as Error).message);
       setRaw(null);
     }
   }
@@ -178,6 +180,7 @@ export function ReelEditor({ price, premiumPrice }: { price: Price; premiumPrice
           </>
         )}
       </div>
+      {uploadError && <div className="alert">No pudimos subir el video: {uploadError}</div>}
 
       <div>
         <h3>¿Qué tipo de video es?</h3>
