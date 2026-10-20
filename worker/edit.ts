@@ -136,7 +136,19 @@ export async function runEdit(job: Job, parent: Job | null): Promise<EditResult>
       const cutFile = join(dir, "cut.mp4");
       await render({ input: rawFile, output: cutFile, segments, overlays, music, keyframeEvery: 30 }, (f) => void progress("render", stretch(50, 70, f)));
       await progress("render", 72);
-      await renderWithHyperframes({ dir, video: cutFile, output: outFile, duration, cues, style, templates: placed, fontsDir: fontsDir() });
+      try {
+        await renderWithHyperframes({ dir, video: cutFile, output: outFile, duration, cues, style, templates: placed, fontsDir: fontsDir() });
+      } catch (err) {
+        // HyperFrames necesita ~2 GB de RAM. Si falla (por ejemplo en un servidor chico), entregamos igual
+        // el reel con los subtítulos de ffmpeg en el mismo estilo, sin las animaciones.
+        console.error(`[${job.id}] HyperFrames falló, sigo con ffmpeg`, err instanceof Error ? err.message.split("\n")[0] : err);
+        const fallbackAss = join(dir, "subs.ass");
+        await writeFile(fallbackAss, toAss(cues, style, templateLines));
+        await render(
+          { input: cutFile, output: outFile, segments: [{ start: 0, end: duration, zoom: false, outStart: 0 }], overlays: [], assFile: fallbackAss, fontsDir: fontsDir() },
+          (f) => void progress("render", stretch(72, 95, f)),
+        );
+      }
     } else {
       await render({ input: rawFile, output: outFile, segments, overlays, assFile, fontsDir: fontsDir(), music }, (f) =>
         void progress("render", stretch(50, 95, f)),
